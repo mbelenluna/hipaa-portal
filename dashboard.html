@@ -12,7 +12,17 @@
     <div class="container">
         <img src="images/logo.png" alt="Rolling Translations Logo" class="logo" />
         <h1>Your Translation Requests</h1>
-        <table id="requestsTable">
+
+        <!-- Empty state -->
+        <p id="emptyState" style="display:none; margin: 16px 0;">No active requests.</p>
+
+        <!-- Actions -->
+        <div style="margin: 12px 0;">
+            <button id="newRequestBtn">Submit a new request</button>
+        </div>
+
+        <!-- Table -->
+        <table id="requestsTable" style="display:none;">
             <thead>
                 <tr>
                     <th>Date</th>
@@ -22,11 +32,10 @@
                     <th>Notes</th>
                 </tr>
             </thead>
-            <tbody>
-                <!-- Requests will be inserted here -->
-            </tbody>
+            <tbody></tbody>
         </table>
-        <button id="logoutBtn">Log out</button>
+
+        <button id="logoutBtn" style="margin-top:16px;">Log out</button>
     </div>
 
     <script type="module">
@@ -47,7 +56,17 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
 
-        const tableBody = document.querySelector("#requestsTable tbody");
+        const table = document.getElementById("requestsTable");
+        const tableBody = table.querySelector("tbody");
+        const emptyState = document.getElementById("emptyState");
+
+        document.getElementById("newRequestBtn").addEventListener("click", () => {
+            window.location.href = "submit-request.html";
+        });
+
+        document.getElementById("logoutBtn").addEventListener("click", () => {
+            signOut(auth).then(() => (window.location.href = "index.html"));
+        });
 
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
@@ -55,37 +74,51 @@
                 return;
             }
 
-            const q = query(
-                collection(db, "projectRequests"),
-                where("email", "==", user.email),
-                orderBy("createdAt", "desc")
-            );
+            try {
+                const q = query(
+                    collection(db, "projectRequests"),
+                    where("email", "==", user.email),
+                    orderBy("createdAt", "desc")
+                );
 
-            const snapshot = await getDocs(q);
-            snapshot.forEach((doc) => {
-                const data = doc.data();
-                const date = data.createdAt?.toDate().toLocaleString() ?? "N/A";
-                const langs = `${data.sourceLang} → ${data.targetLang}`;
-                const file = data.file || "—";
-                const status = data.status || "🕒 Pending";
-                const notes = data.notes || "—";
+                const snapshot = await getDocs(q);
 
-                const row = document.createElement("tr");
-                row.innerHTML = `
-          <td>${date}</td>
-          <td>${langs}</td>
-          <td>${file}</td>
-          <td>${status}</td>
-          <td>${notes}</td>
-        `;
-                tableBody.appendChild(row);
-            });
-        });
+                if (snapshot.empty) {
+                    // No requests → show empty state, hide table
+                    emptyState.style.display = "block";
+                    table.style.display = "none";
+                    return;
+                }
 
-        document.getElementById("logoutBtn").addEventListener("click", () => {
-            signOut(auth).then(() => {
-                window.location.href = "index.html";
-            });
+                // We have data → show table, hide empty state
+                emptyState.style.display = "none";
+                table.style.display = "table";
+
+                snapshot.forEach((doc) => {
+                    const data = doc.data();
+                    const date = data.createdAt?.toDate().toLocaleString() ?? "N/A";
+                    const langs = `${data.sourceLang} → ${data.targetLang}`;
+                    const file = data.file || "—";
+                    const status = data.status || "🕒 Pending";
+                    const notes = data.notes || "—";
+
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+            <td>${date}</td>
+            <td>${langs}</td>
+            <td>${file}</td>
+            <td>${status}</td>
+            <td>${notes}</td>
+          `;
+                    tableBody.appendChild(row);
+                });
+            } catch (err) {
+                // If query fails (e.g., missing index), show graceful empty state
+                console.error(err);
+                emptyState.textContent = "No active requests.";
+                emptyState.style.display = "block";
+                table.style.display = "none";
+            }
         });
     </script>
 </body>
