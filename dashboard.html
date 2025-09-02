@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rolling Translations Client Portal</title>
     <link rel="stylesheet" href="style.css" />
-    <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+
 </head>
 
 <body>
@@ -185,9 +185,6 @@
             });
         }
 
-        // ✅ EmailJS INIT
-        emailjs.init("NXdzFSlIax5PRevuB");
-
         const form = document.getElementById("projectRequestForm");
         const confirmationMsg = document.getElementById("confirmationMsg");
 
@@ -217,26 +214,20 @@
                 await uploadBytes(fileRef, file);
 
                 // ✅ 2. Guardar en Firestore
+                const fullname = document.getElementById("fullnameField").value;
+                const email = document.getElementById("emailField").value;
+                const phone = document.getElementById("phoneField").value;
+
                 await addDoc(collection(db, "projectRequests"), {
                     sourceLang: sourceLang.join(", "),
                     targetLang: targetLang.join(", "),
                     notes,
                     file: file.name,
+                    fullname,
+                    email,
+                    phone,
                     createdAt: serverTimestamp()
                 });
-
-                // ✅ 3. Enviar email
-                const email = "info@rolling-translations.com";
-                const emailResponse = await emailjs.send("service_mugdac3", "template_a6ade8h", {
-                    sourceLang: sourceLang.join(", "),
-                    targetLang: targetLang.join(", "),
-                    notes,
-                    file: file.name,
-                    email,
-                    clientFullName,
-                    clientOrg
-                });
-                console.log("✅ Email sent!", emailResponse);
 
                 document.getElementById("fullnameField").value = clientFullName;
                 document.getElementById("emailField").value = "info@rolling-translations.com";
