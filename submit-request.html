@@ -202,43 +202,47 @@
             const notes = document.getElementById("notes").value;
             const file = document.getElementById("file").files[0];
 
+            // seleccion múltiple → arrays
+            const getSelectedValues = (sel) => Array.from(sel.selectedOptions).map(o => o.value);
             let sourceLang = getSelectedValues(sourceLangSelect);
             let targetLang = getSelectedValues(targetLangSelect);
 
-            sourceLang = Array.isArray(sourceLang) ? sourceLang : [sourceLang];
-            targetLang = Array.isArray(targetLang) ? targetLang : [targetLang];
-
             try {
-                // ✅ 1. Subir archivo a Firebase
+                // 1) Subir archivo
                 const fileRef = ref(storage, `projects/${Date.now()}_${file.name}`);
                 await uploadBytes(fileRef, file);
 
-                // ✅ 2. Guardar en Firestore
-                const fullname = document.getElementById("fullnameField").value;
-                const email = document.getElementById("emailField").value;
-                const phone = document.getElementById("phoneField").value;
+                // 2) Datos del usuario logueado (no uses el inbox de admin)
+                const userEmail = auth.currentUser?.email || "";
+                const fullName = clientFullName || auth.currentUser?.displayName || "";
+                const phone = ""; // completa si lo manejás
 
-                await addDoc(collection(db, "projectRequests"), {
-                    sourceLang: sourceLang.join(", "),
-                    targetLang: targetLang.join(", "),
-                    notes,
-                    file: file.name,
-                    fullname,
-                    email,
-                    phone,
-                    createdAt: serverTimestamp()
-                });
-
-                document.getElementById("fullnameField").value = clientFullName;
-                document.getElementById("emailField").value = "info@rolling-translations.com";
-                document.getElementById("phoneField").value = "";
+                // 3) Setear inputs ocultos ANTES de enviar al Apps Script
+                document.getElementById("fullnameField").value = fullName;
+                document.getElementById("emailField").value = userEmail; // 👈 YA NO "info@rolling-translations.com"
+                document.getElementById("phoneField").value = phone;
                 document.getElementById("sourceLangField").value = sourceLang.join(", ");
                 document.getElementById("targetLangField").value = targetLang.join(", ");
                 document.getElementById("notesField").value = notes;
                 document.getElementById("fileNameField").value = file.name;
 
+                // 4) Guardar en Firestore usando variables reales (no leer hidden inputs)
+                await addDoc(collection(db, "projectRequests"), {
+                    sourceLang: sourceLang.join(", "),
+                    targetLang: targetLang.join(", "),
+                    notes,
+                    file: file.name,
+                    fullname: fullName,
+                    email: userEmail,
+                    phone: phone,
+                    status: "Pending",             // 👈 útil para el dashboard
+                    createdAt: serverTimestamp()
+                });
+
+                // 5) Enviar al Google Sheet (Apps Script)
                 document.getElementById("spreadsheetForm").submit();
 
+                // 6) UX
                 form.reset();
                 confirmationMsg.style.display = "block";
             } catch (error) {
@@ -246,6 +250,7 @@
                 console.error(error);
             }
         });
+
 
 
     </script>
