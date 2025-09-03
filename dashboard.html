@@ -41,7 +41,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
-        import { getFirestore, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+        import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBYjq_CaTEfFhfTChfJ6SnXSbgIzbbRHHc",
@@ -57,7 +57,7 @@
         const db = getFirestore(app);
 
         const table = document.getElementById("requestsTable");
-        const tableBody = table.querySelector("tbody");
+        const tbody = table.querySelector("tbody");
         const emptyState = document.getElementById("emptyState");
 
         document.getElementById("newRequestBtn").addEventListener("click", () => {
@@ -77,44 +77,50 @@
             try {
                 const q = query(
                     collection(db, "projectRequests"),
-                    where("email", "==", user.email),
-                    orderBy("createdAt", "desc")
+                    where("email", "==", user.email)
                 );
+                const snap = await getDocs(q);
 
-                const snapshot = await getDocs(q);
-
-                if (snapshot.empty) {
-                    // No requests → show empty state, hide table
+                if (snap.empty) {
                     emptyState.style.display = "block";
                     table.style.display = "none";
                     return;
                 }
 
-                // We have data → show table, hide empty state
+                // Collect & client-sort by createdAt desc
+                const rows = [];
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    rows.push({
+                        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
+                        sourceLang: data.sourceLang || "",
+                        targetLang: data.targetLang || "",
+                        file: data.file || "—",
+                        status: data.status || "🕒 Pending",
+                        notes: data.notes || "—"
+                    });
+                });
+
+                rows.sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
+
+                tbody.innerHTML = "";
+                for (const r of rows) {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+        <td>${r.createdAt ? r.createdAt.toLocaleString() : "N/A"}</td>
+        <td>${r.sourceLang} → ${r.targetLang}</td>
+        <td>${r.file}</td>
+        <td>${r.status}</td>
+        <td>${r.notes}</td>
+        `;
+                    tbody.appendChild(tr);
+                }
+
                 emptyState.style.display = "none";
                 table.style.display = "table";
 
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    const date = data.createdAt?.toDate().toLocaleString() ?? "N/A";
-                    const langs = `${data.sourceLang} → ${data.targetLang}`;
-                    const file = data.file || "—";
-                    const status = data.status || "🕒 Pending";
-                    const notes = data.notes || "—";
-
-                    const row = document.createElement("tr");
-                    row.innerHTML = `
-            <td>${date}</td>
-            <td>${langs}</td>
-            <td>${file}</td>
-            <td>${status}</td>
-            <td>${notes}</td>
-          `;
-                    tableBody.appendChild(row);
-                });
             } catch (err) {
-                // If query fails (e.g., missing index), show graceful empty state
-                console.error(err);
+                console.error("Firestore error:", err);
                 emptyState.textContent = "No active requests.";
                 emptyState.style.display = "block";
                 table.style.display = "none";

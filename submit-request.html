@@ -117,6 +117,12 @@
             <button type="submit">Send Request</button>
         </form>
         <p id="confirmationMsg" style="display:none; color:green;">✅ Project request sent!</p>
+        <button type="button" id="backToDashboardBtn">Back to Dashboard</button>
+        <script>
+            document.getElementById('backToDashboardBtn').addEventListener('click', () => {
+                window.location.href = 'dashboard.html';
+            });
+        </script>
         <button id="logoutBtn">Log out</button>
     </div>
 
@@ -241,6 +247,7 @@
 
                 // 5) Enviar al Google Sheet (Apps Script)
                 document.getElementById("spreadsheetForm").submit();
+                window.location.href = "dashboard.html";
 
                 // 6) UX
                 form.reset();
