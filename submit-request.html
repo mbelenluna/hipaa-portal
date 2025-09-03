@@ -161,6 +161,9 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         const storage = getStorage(app);
+        window.__app = app;
+        window.__storage = storage;
+        console.log("Bucket en runtime:", window.__storage.app.options.storageBucket);
         let clientFullName = "";
         let clientOrg = "";
 
@@ -225,7 +228,7 @@
 
                 // 3) Setear inputs ocultos ANTES de enviar al Apps Script
                 document.getElementById("fullnameField").value = fullName;
-                document.getElementById("emailField").value = userEmail; // 👈 YA NO "info@rolling-translations.com"
+                document.getElementById("emailField").value = userEmail;
                 document.getElementById("phoneField").value = phone;
                 document.getElementById("sourceLangField").value = sourceLang.join(", ");
                 document.getElementById("targetLangField").value = targetLang.join(", ");
@@ -241,8 +244,8 @@
                     fullname: fullName,
                     email: userEmail,
                     phone: phone,
-                    status: "Pending",          
-                    deliverables: [],  
+                    status: "Pending",
+                    deliverables: [],
                     createdAt: serverTimestamp()
                 });
 
