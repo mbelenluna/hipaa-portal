@@ -1,16 +1,23 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Permitir lectura a usuarios autenticados
-    match /deliverables/{projectId}/{fileName} {
-      allow read: if request.auth != null;
-      // write: limitá a tu flujo admin en otra regla si hace falta
-    }
 
+    // ============ PROJECTS (fuentes que sube el cliente) ============
+    // Cualquiera logueado puede subir; SOLO admin puede leer.
     match /projects/{projectId}/{fileName} {
-      allow read: if request.auth != null;
+      allow write: if request.auth != null;                        // subir desde el portal
+      allow read:  if request.auth != null && request.auth.token.admin == true; // solo admin
     }
 
-    // (implícitamente, todo lo no matcheado queda denegado)
+    // ============ DELIVERABLES (entregables para el cliente) ============
+    // Dueño (por email en Firestore) o admin puede leer; escribir solo admin.
+    match /deliverables/{projectId}/{fileName} {
+      allow read: if request.auth != null && (
+        request.auth.token.admin == true ||
+        get(/databases/(default)/documents/projectRequests/$(projectId))
+          .data.email == request.auth.token.email
+      );
+      allow write: if request.auth != null && request.auth.token.admin == true;
+    }
   }
 }

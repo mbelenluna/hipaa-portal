@@ -12,10 +12,8 @@
             width: 100%;
             border-collapse: collapse;
             table-layout: fixed;
-            /* columnas uniformes */
             margin-top: 16px;
         }
-
         #requestsTable th,
         #requestsTable td {
             border: 1px solid #ddd;
@@ -23,33 +21,27 @@
             text-align: left;
             word-wrap: break-word;
         }
-
         #requestsTable th {
             background: #f4f4f4;
             font-weight: 700;
             text-align: center;
         }
-
         #requestsTable tbody tr:nth-child(even) {
             background: #fafafa;
         }
-
         #requestsTable tbody tr:hover {
             background: #f1f7ff;
         }
-
         .actions {
             margin: 12px 0;
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
         }
-
         .muted {
             color: #666;
             margin: 16px 0;
         }
-
         .badge {
             display: inline-block;
             padding: 4px 8px;
@@ -58,18 +50,9 @@
             font-weight: 600;
             background: #eee;
         }
-
-        .badge.pending {
-            background: #fff5e6;
-        }
-
-        .badge.delivered {
-            background: #e9f8ef;
-        }
-
-        .badge.progress {
-            background: #eaf2ff;
-        }
+        .badge.pending { background: #fff5e6; }
+        .badge.delivered { background: #e9f8ef; }
+        .badge.progress { background: #eaf2ff; }
     </style>
 </head>
 
@@ -82,7 +65,6 @@
 
         <div class="actions">
             <button id="newRequestBtn">Submit a new request</button>
-
         </div>
 
         <table id="requestsTable" style="display:none;">
@@ -91,10 +73,10 @@
                     <th>Date</th>
                     <th>Project ID</th>
                     <th>Languages</th>
-                    <th>File</th>
+                    <th>File(s)</th>
                     <th>Status</th>
                     <th>Notes</th>
-                    <th>Files</th>
+                    <th>Deliverables</th>
                 </tr>
             </thead>
             <tbody></tbody>
@@ -109,7 +91,6 @@
         import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
         import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
 
-        // ---- Firebase ----
         const firebaseConfig = {
             apiKey: "AIzaSyBYjq_CaTEfFhfTChfJ6SnXSbgIzbbRHHc",
             authDomain: "rollingtranslationsportal.firebaseapp.com",
@@ -123,11 +104,6 @@
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        // Exponer para inspección en consola
-        window.__app = app;
-        window.__storage = storage;
-
-        // ---- UI refs ----
         const table = document.getElementById("requestsTable");
         const tbody = table.querySelector("tbody");
         const emptyState = document.getElementById("emptyState");
@@ -139,7 +115,6 @@
             signOut(auth).then(() => (window.location.href = "index.html"));
         });
 
-        // ---- Helpers ----
         function statusBadge(txt) {
             const t = (txt || "Pending").toLowerCase();
             let cls = "badge";
@@ -163,53 +138,30 @@
         }
 
         async function filesLinks(deliverables) {
-            if (!deliverables || !deliverables.length) {
-                console.log("[filesLinks] No deliverables array or empty:", deliverables);
-                return "—";
-            }
-
-            console.log("[filesLinks] Resolviendo deliverables:", deliverables);
-
+            if (!deliverables || !deliverables.length) return "—";
             const parts = await Promise.all(
                 deliverables.map(async (d, i) => {
                     try {
-                        if (d.url) {
-                            console.log(`[filesLinks] Usando URL directa para item ${i + 1}:`, d.url);
-                            return `<a href="${d.url}" target="_blank" rel="noopener">File ${i + 1} ⬇️</a>`;
-                        }
-                        if (!d.path) {
-                            console.warn(`[filesLinks] Item ${i + 1} sin path/url:`, d);
-                            return `<span title="No URL or path">Unavailable</span>`;
-                        }
-
-                        console.log(`[filesLinks] Intentando getDownloadURL para: ${d.path}`);
+                        if (d.url) return `<a href="${d.url}" target="_blank" rel="noopener">File ${i + 1} ⬇️</a>`;
+                        if (!d.path) return `<span>Unavailable</span>`;
                         const url = await getDownloadURL(ref(storage, d.path));
-                        console.log(`[filesLinks] OK getDownloadURL para ${d.path}:`, url);
-                        return `<a href="${url}" target="_blank" rel="noopener">Download ${i + 1}</a>`;
-                    } catch (err) {
-                        console.error(`getDownloadURL failed for ${d?.path}`, err.code, err.message);
-                        return `<span title="${err.code || 'error'}">Unavailable</span>`;
+                        return `<a href="${url}" target="_blank" rel="noopener">File ${i + 1} ⬇️</a>`;
+                    } catch {
+                        return `<span>Unavailable</span>`;
                     }
                 })
             );
             return parts.join(" · ");
         }
 
-        // ---- Main ----
-        console.log("[BOOT] Bucket en runtime:", storage.app.options.storageBucket);
-
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
-                console.warn("[AUTH] No user → redirect");
                 window.location.href = "index.html";
                 return;
             }
-            console.log("[AUTH] User:", { uid: user.uid, email: user.email });
-
             try {
                 const q = query(collection(db, "projectRequests"), where("email", "==", user.email));
                 const snap = await getDocs(q);
-                console.log("[FS] Query by email complete. empty?", snap.empty, "count:", snap.size);
 
                 if (snap.empty) {
                     emptyState.style.display = "block";
@@ -223,42 +175,32 @@
                     const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : null;
                     rows.push({ id: doc.id, data, createdAt });
                 });
-
-                // Ordenar cliente
                 rows.sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
-
-                console.log("[FS] Rows:", rows.map(r => ({
-                    id: r.id,
-                    createdAt: r.createdAt?.toISOString?.() || null,
-                    deliverables: r.data.deliverables || []
-                })));
 
                 tbody.innerHTML = "";
                 for (const { id, data, createdAt } of rows) {
                     const dateText = createdAt ? createdAt.toLocaleString() : "N/A";
                     const langs = `${data.sourceLang || ""} → ${data.targetLang || ""}`;
-                    const file = data.file || "—";
                     const status = data.status || "Pending";
                     const pid = data.projectId || toProjectId(data, createdAt);
 
-                    // LOG de cada fila antes de render
-                    console.log(`[UI] Render row for doc ${id}`, {
-                        dateText, pid, langs, file, status, notes: data.notes || "—",
-                        deliverables: data.deliverables
-                    });
+                    // ✅ FIX: show all uploaded files
+                    const fileNames = (Array.isArray(data.files) && data.files.length > 0)
+                        ? data.files.map(f => el(f.name || f)).join(", ")
+                        : (data.file ? el(data.file) : "—");
 
                     const filesHtml = await filesLinks(data.deliverables);
 
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
-        <td>${dateText}</td>
-        <td>${pid}</td>
-        <td>${el(langs)}</td>
-        <td>${el(file)}</td>
-        <td>${statusBadge(status)}</td>
-        <td>${el(data.notes || "—")}</td>
-        <td>${filesHtml}</td>
-        `;
+                        <td>${dateText}</td>
+                        <td>${pid}</td>
+                        <td>${el(langs)}</td>
+                        <td>${fileNames}</td>
+                        <td>${statusBadge(status)}</td>
+                        <td>${el(data.notes || "—")}</td>
+                        <td>${filesHtml}</td>
+                    `;
                     tbody.appendChild(tr);
                 }
 
@@ -272,7 +214,6 @@
             }
         });
 
-        // Escape básico para texto en celdas
         function el(txt) {
             return String(txt).replace(/[&<>"'`=\/]/g, s => ({
                 "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;", "/": "&#x2F;", "`": "&#x60;", "=": "&#x3D;"
@@ -281,5 +222,4 @@
     </script>
 
 </body>
-
 </html>
