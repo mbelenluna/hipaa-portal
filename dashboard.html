@@ -82,7 +82,7 @@
 
         <div class="actions">
             <button id="newRequestBtn">Submit a new request</button>
-            
+
         </div>
 
         <table id="requestsTable" style="display:none;">
@@ -163,22 +163,25 @@
             if (!deliverables || !deliverables.length) return "—";
             const parts = await Promise.all(
                 deliverables.map(async (d, i) => {
-                    if (d.url) {
-                        return `<a href="${d.url}" target="_blank" rel="noopener">Download ${i + 1}</a>`;
-                    } else if (d.path) {
-                        try {
-                            const url = await getDownloadURL(ref(storage, d.path));
-                            return `<a href="${url}" target="_blank" rel="noopener">Download ${i + 1}</a>`;
-                        } catch {
-                            return `<span title="File not accessible">Unavailable</span>`;
+                    try {
+                        if (d.url) {
+                            return `<a href="${d.url}" target="_blank" rel="noopener">Download ${i + 1}</a>`;
                         }
-                    } else {
-                        return `<span title="No URL or path">Unavailable</span>`;
+                        if (!d.path) {
+                            console.warn("Deliverable sin path/url:", d);
+                            return `<span title="No URL or path">Unavailable</span>`;
+                        }
+                        const url = await getDownloadURL(ref(storage, d.path)); // 👈 sin "/" inicial
+                        return `<a href="${url}" target="_blank" rel="noopener">Download ${i + 1}</a>`;
+                    } catch (err) {
+                        console.error("getDownloadURL failed for", d.path, err.code, err.message);
+                        return `<span title="${err.code || 'error'}">Unavailable</span>`;
                     }
                 })
             );
             return parts.join(" · ");
         }
+
 
         // ---- Main ----
         onAuthStateChanged(auth, async (user) => {
