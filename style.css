@@ -106,7 +106,8 @@ p {
     background-color: white;
     width: 25%;
     display: block;
-    margin: 20px auto; /* esto lo centra horizontalmente */
+    margin: 20px auto;
+    /* esto lo centra horizontalmente */
     padding: 10px;
     font-weight: bold;
     border: 1px solid #ccc;
@@ -114,3 +115,34 @@ p {
     cursor: pointer;
 }
 
+#requestsTable {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    /* ✅ columnas uniformes */
+    margin-top: 16px;
+}
+
+#requestsTable th,
+#requestsTable td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: left;
+    word-wrap: break-word;
+}
+
+#requestsTable th {
+    background-color: #f4f4f4;
+    font-weight: bold;
+    text-align: center;
+}
+
+#requestsTable tbody tr:nth-child(even) {
+    background-color: #fafafa;
+    /* zebra striping */
+}
+
+#requestsTable tbody tr:hover {
+    background-color: #f1f7ff;
+    /* highlight on hover */
+}
