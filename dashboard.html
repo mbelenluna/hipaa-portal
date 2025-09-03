@@ -123,14 +123,19 @@
         const db = getFirestore(app);
         const storage = getStorage(app);
 
+        // Exponer para inspección en consola
+        window.__app = app;
+        window.__storage = storage;
+
         // ---- UI refs ----
         const table = document.getElementById("requestsTable");
         const tbody = table.querySelector("tbody");
         const emptyState = document.getElementById("emptyState");
-        document.getElementById("newRequestBtn").addEventListener("click", () => {
+
+        document.getElementById("newRequestBtn")?.addEventListener("click", () => {
             window.location.href = "submit-request.html";
         });
-        document.getElementById("logoutBtn").addEventListener("click", () => {
+        document.getElementById("logoutBtn")?.addEventListener("click", () => {
             signOut(auth).then(() => (window.location.href = "index.html"));
         });
 
@@ -144,8 +149,6 @@
             return `<span class="${cls}">${txt || "Pending"}</span>`;
         }
 
-        // Genera Project ID si no existe en el doc:
-        // sourceLang + targetLang + primeras 10 letras del filename (solo A-Z) + fecha "MMDDYYHHmm"
         function toProjectId(data, createdAtDate) {
             const src = (data.sourceLang || "").replace(/[^A-Za-z]/g, "");
             const tgt = (data.targetLang || "").replace(/[^A-Za-z]/g, "");
@@ -160,21 +163,31 @@
         }
 
         async function filesLinks(deliverables) {
-            if (!deliverables || !deliverables.length) return "—";
+            if (!deliverables || !deliverables.length) {
+                console.log("[filesLinks] No deliverables array or empty:", deliverables);
+                return "—";
+            }
+
+            console.log("[filesLinks] Resolviendo deliverables:", deliverables);
+
             const parts = await Promise.all(
                 deliverables.map(async (d, i) => {
                     try {
                         if (d.url) {
+                            console.log(`[filesLinks] Usando URL directa para item ${i + 1}:`, d.url);
                             return `<a href="${d.url}" target="_blank" rel="noopener">Download ${i + 1}</a>`;
                         }
                         if (!d.path) {
-                            console.warn("Deliverable sin path/url:", d);
+                            console.warn(`[filesLinks] Item ${i + 1} sin path/url:`, d);
                             return `<span title="No URL or path">Unavailable</span>`;
                         }
-                        const url = await getDownloadURL(ref(storage, d.path)); // 👈 sin "/" inicial
+
+                        console.log(`[filesLinks] Intentando getDownloadURL para: ${d.path}`);
+                        const url = await getDownloadURL(ref(storage, d.path));
+                        console.log(`[filesLinks] OK getDownloadURL para ${d.path}:`, url);
                         return `<a href="${url}" target="_blank" rel="noopener">Download ${i + 1}</a>`;
                     } catch (err) {
-                        console.error("getDownloadURL failed for", d.path, err.code, err.message);
+                        console.error(`getDownloadURL failed for ${d?.path}`, err.code, err.message);
                         return `<span title="${err.code || 'error'}">Unavailable</span>`;
                     }
                 })
@@ -182,17 +195,21 @@
             return parts.join(" · ");
         }
 
-
         // ---- Main ----
+        console.log("[BOOT] Bucket en runtime:", storage.app.options.storageBucket);
+
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
+                console.warn("[AUTH] No user → redirect");
                 window.location.href = "index.html";
                 return;
             }
+            console.log("[AUTH] User:", { uid: user.uid, email: user.email });
 
             try {
                 const q = query(collection(db, "projectRequests"), where("email", "==", user.email));
                 const snap = await getDocs(q);
+                console.log("[FS] Query by email complete. empty?", snap.empty, "count:", snap.size);
 
                 if (snap.empty) {
                     emptyState.style.display = "block";
@@ -200,34 +217,47 @@
                     return;
                 }
 
-                // Recolecta y ordena por createdAt desc (cliente)
                 const rows = [];
                 snap.forEach(doc => {
                     const data = doc.data();
                     const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : null;
                     rows.push({ id: doc.id, data, createdAt });
                 });
+
+                // Ordenar cliente
                 rows.sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
 
-                tbody.innerHTML = "";
+                console.log("[FS] Rows:", rows.map(r => ({
+                    id: r.id,
+                    createdAt: r.createdAt?.toISOString?.() || null,
+                    deliverables: r.data.deliverables || []
+                })));
 
+                tbody.innerHTML = "";
                 for (const { id, data, createdAt } of rows) {
                     const dateText = createdAt ? createdAt.toLocaleString() : "N/A";
                     const langs = `${data.sourceLang || ""} → ${data.targetLang || ""}`;
                     const file = data.file || "—";
                     const status = data.status || "Pending";
                     const pid = data.projectId || toProjectId(data, createdAt);
+
+                    // LOG de cada fila antes de render
+                    console.log(`[UI] Render row for doc ${id}`, {
+                        dateText, pid, langs, file, status, notes: data.notes || "—",
+                        deliverables: data.deliverables
+                    });
+
                     const filesHtml = await filesLinks(data.deliverables);
 
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
-            <td>${dateText}</td>
-            <td>${pid}</td>
-            <td>${langs}</td>
-            <td>${file}</td>
-            <td>${statusBadge(status)}</td>
-            <td>${data.notes || "—"}</td>
-            <td>${filesHtml}</td>
+        <td>${dateText}</td>
+        <td>${pid}</td>
+        <td>${el(langs)}</td>
+        <td>${el(file)}</td>
+        <td>${statusBadge(status)}</td>
+        <td>${el(data.notes || "—")}</td>
+        <td>${filesHtml}</td>
         `;
                     tbody.appendChild(tr);
                 }
@@ -235,13 +265,21 @@
                 emptyState.style.display = "none";
                 table.style.display = "table";
             } catch (err) {
-                console.error("Firestore error:", err);
+                console.error("[FS] Firestore error:", err);
                 emptyState.textContent = "No active requests.";
                 emptyState.style.display = "block";
                 table.style.display = "none";
             }
         });
+
+        // Escape básico para texto en celdas
+        function el(txt) {
+            return String(txt).replace(/[&<>"'`=\/]/g, s => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;", "/": "&#x2F;", "`": "&#x60;", "=": "&#x3D;"
+            }[s]));
+        }
     </script>
+
 </body>
 
 </html>
