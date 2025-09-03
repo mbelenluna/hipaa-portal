@@ -175,7 +175,7 @@
                     try {
                         if (d.url) {
                             console.log(`[filesLinks] Usando URL directa para item ${i + 1}:`, d.url);
-                            return `<a href="${d.url}" target="_blank" rel="noopener">Download ${i + 1}</a>`;
+                            return `<a href="${d.url}" target="_blank" rel="noopener">File ${i + 1} ⬇️</a>`;
                         }
                         if (!d.path) {
                             console.warn(`[filesLinks] Item ${i + 1} sin path/url:`, d);

@@ -1,8 +1,16 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /{allPaths=**} {
-      allow read, write: if request.auth != null;
+    // Permitir lectura a usuarios autenticados
+    match /deliverables/{projectId}/{fileName} {
+      allow read: if request.auth != null;
+      // write: limitá a tu flujo admin en otra regla si hace falta
     }
+
+    match /projects/{projectId}/{fileName} {
+      allow read: if request.auth != null;
+    }
+
+    // (implícitamente, todo lo no matcheado queda denegado)
   }
 }

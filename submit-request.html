@@ -6,6 +6,56 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Rolling Translations Client Portal</title>
     <link rel="stylesheet" href="style.css" />
+    <style>
+        /* ---- Files UI ---- */
+        .dropzone {
+            border: 2px dashed #9bb4ff;
+            border-radius: 10px;
+            padding: 18px;
+            text-align: center;
+            background: #f7faff;
+            transition: background 0.15s, border-color 0.15s;
+            cursor: pointer;
+        }
+
+        .dropzone.dragover {
+            background: #eef4ff;
+            border-color: #5b82ff;
+        }
+
+        .files-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .file-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border: 1px solid #ddd;
+            border-radius: 14px;
+            background: #fff;
+            font-size: 14px;
+        }
+
+        .file-remove {
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 14px;
+            line-height: 1;
+            color: #c00;
+        }
+
+        .hint {
+            font-size: 13px;
+            color: #666;
+            margin-top: 6px;
+        }
+    </style>
 </head>
 
 <body>
@@ -106,8 +156,17 @@
                 <option value="vi">Vietnamese</option>
             </select>
 
-            <label for="file">Upload File (*)</label>
-            <input type="file" id="file" name="file" required />
+            <label>Upload Files (*)</label>
+
+            <!-- Dropzone + multiple input -->
+            <div id="dropzone" class="dropzone">
+                <strong>Drag & drop</strong> files here or <u>click to select</u>.
+                <div class="hint">You can add files from different folders. They will appear below.</div>
+                <input type="file" id="file" name="file" multiple style="display:none;" />
+            </div>
+
+            <!-- Selected files list -->
+            <div id="filesList" class="files-list"></div>
 
             <label for="notes">Additional Notes</label>
             <textarea id="notes" name="notes" rows="4"></textarea>
@@ -141,7 +200,6 @@
         <input name="targetLang" id="targetLangField" />
         <input name="notes" id="notesField" />
         <input name="fileName" id="fileNameField" />
-        <!-- opcional: si querés mandar el projectId al Sheet también -->
         <input name="projectId" id="projectIdField" />
     </form>
 
@@ -169,7 +227,7 @@
         let clientFullName = "";
         let clientOrg = "";
 
-        // Sesión
+        // Session
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 window.location.href = "index.html";
@@ -194,20 +252,87 @@
             });
         }
 
+        // ---------- Multiple files handling ----------
+        const dropzone = document.getElementById("dropzone");
+        const fileInput = document.getElementById("file");
+        const filesListEl = document.getElementById("filesList");
+
+        // Persistent selection
+        let selectedFiles = []; // array of File
+
+        function filesAreSame(a, b) {
+            return a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
+        }
+
+        function addFiles(files) {
+            for (const f of files) {
+                // de-dup
+                if (!selectedFiles.some(sf => filesAreSame(sf, f))) {
+                    selectedFiles.push(f);
+                }
+            }
+            renderFiles();
+        }
+
+        function removeFileAt(index) {
+            selectedFiles.splice(index, 1);
+            renderFiles();
+        }
+
+        function renderFiles() {
+            filesListEl.innerHTML = "";
+            if (!selectedFiles.length) return;
+            selectedFiles.forEach((f, idx) => {
+                const chip = document.createElement("div");
+                chip.className = "file-chip";
+                chip.innerHTML = `
+          <span title="${f.name}">${f.name}</span>
+          <button type="button" class="file-remove" aria-label="Remove file">✕</button>
+        `;
+                chip.querySelector(".file-remove").addEventListener("click", () => removeFileAt(idx));
+                filesListEl.appendChild(chip);
+            });
+        }
+
+        // Click-to-select
+        dropzone.addEventListener("click", () => fileInput.click());
+        fileInput.addEventListener("change", (e) => {
+            if (e.target.files?.length) addFiles(e.target.files);
+            // DO NOT clear selection; keep persistent
+            fileInput.value = ""; // allow re-selecting same file from different folder dialogs
+        });
+
+        // Drag & drop
+        ["dragenter", "dragover"].forEach(evt => {
+            dropzone.addEventListener(evt, (e) => {
+                e.preventDefault(); e.stopPropagation();
+                dropzone.classList.add("dragover");
+            });
+        });
+        ["dragleave", "drop"].forEach(evt => {
+            dropzone.addEventListener(evt, (e) => {
+                e.preventDefault(); e.stopPropagation();
+                dropzone.classList.remove("dragover");
+            });
+        });
+        dropzone.addEventListener("drop", (e) => {
+            const dtFiles = e.dataTransfer?.files;
+            if (dtFiles && dtFiles.length) addFiles(dtFiles);
+        });
+
         // Helpers
         const form = document.getElementById("projectRequestForm");
         const confirmationMsg = document.getElementById("confirmationMsg");
         const getSelectedValues = (sel) => Array.from(sel.selectedOptions).map(o => o.value);
 
-        // --- Project ID builder ---
-        function buildProjectId({ sourceLang, targetLang, fileName, date = new Date() }) {
-            const lettersOnly = (fileName || "").replace(/[^A-Za-z]/g, "").slice(0, 10);
+        // --- Project ID builder (uses FIRST file) ---
+        function buildProjectId({ sourceLang, targetLang, firstFileName, date = new Date() }) {
+            const lettersOnly = (firstFileName || "").replace(/[^A-Za-z]/g, "").slice(0, 10);
             const MM = String(date.getMonth() + 1).padStart(2, "0");
             const DD = String(date.getDate()).padStart(2, "0");
             const YY = String(date.getFullYear()).slice(-2);
             const HH = String(date.getHours()).padStart(2, "0");
             const mm = String(date.getMinutes()).padStart(2, "0");
-            // sourceLang & targetLang son arrays -> usá concatenación simple (sin separadores)
             const src = (Array.isArray(sourceLang) ? sourceLang.join("") : sourceLang || "").replace(/[^A-Za-z]/g, "");
             const tgt = (Array.isArray(targetLang) ? targetLang.join("") : targetLang || "").replace(/[^A-Za-z]/g, "");
             return `${src}${tgt}${lettersOnly}${MM}${DD}${YY}${HH}${mm}`;
@@ -220,37 +345,45 @@
             const sourceLangSelect = document.getElementById("sourceLang");
             const targetLangSelect = document.getElementById("targetLang");
             const notes = document.getElementById("notes").value;
-            const file = document.getElementById("file").files[0];
 
             const sourceLang = getSelectedValues(sourceLangSelect);
             const targetLang = getSelectedValues(targetLangSelect);
 
+            if (!selectedFiles.length) {
+                alert("Please attach at least one file.");
+                return;
+            }
+
             try {
-                // Datos del usuario
+                // User data
                 const userEmail = auth.currentUser?.email || "";
                 const fullName = clientFullName || auth.currentUser?.displayName || "";
-                const phone = ""; // si lo manejás, completalo
+                const phone = ""; // optional
 
-                // Generar projectId con tu regla
+                // Build projectId using the FIRST file
                 const projectId = buildProjectId({
                     sourceLang,
                     targetLang,
-                    fileName: file.name,
+                    firstFileName: selectedFiles[0].name,
                     date: new Date()
                 });
 
-                // 1) Subir archivo a carpeta del proyecto
-                const storagePath = `projects/${projectId}/${Date.now()}_${file.name}`;
-                const fileRef = ref(storage, storagePath);
-                await uploadBytes(fileRef, file);
+                // 1) Upload ALL files under the project folder
+                const uploadedNames = [];
+                await Promise.all(selectedFiles.map(async (file) => {
+                    const storagePath = `projects/${projectId}/${Date.now()}_${file.name}`;
+                    const fileRef = ref(storage, storagePath);
+                    await uploadBytes(fileRef, file);
+                    uploadedNames.push(file.name);
+                }));
 
-                // 2) Guardar en Firestore
+                // 2) Save Firestore request
                 const docRef = await addDoc(collection(db, "projectRequests"), {
-                    projectId,                             // 👈 guardamos tu projectId
+                    projectId,
                     sourceLang: sourceLang.join(", "),
                     targetLang: targetLang.join(", "),
                     notes,
-                    file: file.name,
+                    files: uploadedNames,      // <-- multiple original filenames
                     fullname: fullName,
                     email: userEmail,
                     phone: phone,
@@ -259,26 +392,22 @@
                     createdAt: serverTimestamp()
                 });
 
-                // (Opcional) también podés persistir el docId si lo querés más adelante
                 await updateDoc(docRef, { docId: docRef.id });
 
-                // 3) Setear hidden inputs para Apps Script
+                // 3) Send to Google Sheet (join filenames)
                 document.getElementById("fullnameField").value = fullName;
                 document.getElementById("emailField").value = userEmail;
                 document.getElementById("phoneField").value = phone;
                 document.getElementById("sourceLangField").value = sourceLang.join(", ");
                 document.getElementById("targetLangField").value = targetLang.join(", ");
                 document.getElementById("notesField").value = notes;
-                document.getElementById("fileNameField").value = file.name;
-                document.getElementById("projectIdField").value = projectId; // opcional
+                document.getElementById("fileNameField").value = uploadedNames.join(", ");
+                document.getElementById("projectIdField").value = projectId;
 
-                // 4) Enviar a Google Sheet y redirigir al dashboard
                 document.getElementById("spreadsheetForm").submit();
-                window.location.href = "dashboard.html";
 
-                // 5) UX (si te quedás en la página, mostrarías el OK)
-                // form.reset();
-                // confirmationMsg.style.display = "block";
+                // 4) Redirect to dashboard
+                window.location.href = "dashboard.html";
             } catch (error) {
                 alert("⚠️ Error: " + error.message);
                 console.error(error);
