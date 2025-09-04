@@ -46,7 +46,6 @@
     <script type="module">
         console.log("[BOOT] Bucket runtime:", getStorage().app.options.storageBucket);
 
-        import { getAuth } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
         import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 
         onAuthStateChanged(getAuth(), async (user) => {
