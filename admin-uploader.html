@@ -61,6 +61,13 @@
             console.log("[FIRESTORE] users/{uid} exists?", snap.exists(), "data:", snap.data());
         });
 
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+        import { onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+        import {
+            collection, getDocs, query, orderBy, updateDoc, arrayUnion
+        } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
+
         const firebaseConfig = {
             apiKey: "AIzaSyBYjq_CaTEfFhfTChfJ6SnXSbgIzbbRHHc",
             authDomain: "rollingtranslationsportal.firebaseapp.com",
