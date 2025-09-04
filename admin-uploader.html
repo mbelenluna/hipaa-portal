@@ -236,10 +236,16 @@
                     console.log("[UPLOAD] Path:", path);
                     const fileRef = ref(storage, path);
 
-                    await uploadBytes(fileRef, f);
+                    const metadata = {
+                        contentType: f.type || 'application/octet-stream',
+                        contentDisposition: `attachment; filename="${f.name}"`
+                    };
+                    await uploadBytes(fileRef, f, metadata);
+                    const url = await getDownloadURL(fileRef);
+
                     console.log("[UPLOAD] Uploaded:", f.name);
 
-                    const url = await getDownloadURL(fileRef);
+
                     console.log("[UPLOAD] URL obtained:", url);
 
                     updates.push({ name: f.name, path, url, uploadedAt: new Date() });
