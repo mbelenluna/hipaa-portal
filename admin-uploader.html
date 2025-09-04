@@ -44,6 +44,23 @@
     </div>
 
     <script type="module">
+        console.log("[BOOT] Bucket runtime:", getStorage().app.options.storageBucket);
+
+        import { getAuth } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+
+        onAuthStateChanged(getAuth(), async (user) => {
+            if (!user) {
+                console.warn("[BOOT] No user signed in");
+                return;
+            }
+            console.log("[AUTH] Current UID:", user.uid, "email:", user.email);
+
+            const db = getFirestore();
+            const snap = await getDoc(doc(db, "users", user.uid));
+            console.log("[FIRESTORE] users/{uid} exists?", snap.exists(), "data:", snap.data());
+        });
+
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
         import {
