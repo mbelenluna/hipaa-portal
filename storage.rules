@@ -1,23 +1,21 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-
-    // ============ PROJECTS (fuentes que sube el cliente) ============
-    // Cualquiera logueado puede subir; SOLO admin puede leer.
-    match /projects/{projectId}/{fileName} {
-      allow write: if request.auth != null;                        // subir desde el portal
-      allow read:  if request.auth != null && request.auth.token.admin == true; // solo admin
+    function isAdmin() {
+      return request.auth != null &&
+             get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-
-    // ============ DELIVERABLES (entregables para el cliente) ============
-    // Dueño (por email en Firestore) o admin puede leer; escribir solo admin.
-    match /deliverables/{projectId}/{fileName} {
-      allow read: if request.auth != null && (
-        request.auth.token.admin == true ||
-        get(/databases/(default)/documents/projectRequests/$(projectId))
-          .data.email == request.auth.token.email
-      );
-      allow write: if request.auth != null && request.auth.token.admin == true;
+    function isOwner(docId) {
+      return request.auth != null &&
+             get(/databases/(default)/documents/projectRequests/$(docId)).data.email == request.auth.token.email;
+    }
+    match /deliverables/{docId}/{fileName} {
+      allow read: if isOwner(docId) || isAdmin();
+      allow write: if isAdmin();
+    }
+    match /projects/{projectId}/{fileName} {
+      allow write: if request.auth != null;  // clientes suben fuentes
+      allow read: if isAdmin();              // opcional
     }
   }
 }
