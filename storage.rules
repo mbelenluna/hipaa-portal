@@ -1,21 +1,29 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+
     function isAdmin() {
-      return request.auth != null &&
-             get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      return request.auth != null
+        && exists(/databases/(default)/documents/users/$(request.auth.uid))
+        && get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
+
     function isOwner(docId) {
-      return request.auth != null &&
-             get(/databases/(default)/documents/projectRequests/$(docId)).data.email == request.auth.token.email;
+      return request.auth != null
+        && exists(/databases/(default)/documents/projectRequests/$(docId))
+        && get(/databases/(default)/documents/projectRequests/$(docId)).data.email == request.auth.token.email;
     }
+
+    // Final deliverables
     match /deliverables/{docId}/{fileName} {
-      allow read: if isOwner(docId) || isAdmin();
-      allow write: if isAdmin();
+      allow write: if isAdmin();          // Admin uploads deliverables
+      allow read:  if isAdmin() || isOwner(docId);
     }
+
+    // Source uploads (from client)
     match /projects/{projectId}/{fileName} {
-      allow write: if request.auth != null;  // clientes suben fuentes
-      allow read: if isAdmin();              // opcional
+      allow write: if request.auth != null; // client can upload sources
+      allow read:  if isAdmin();            // optional: only admin can read sources
     }
   }
 }
