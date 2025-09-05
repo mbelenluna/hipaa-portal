@@ -7,7 +7,6 @@
     <title>Admin Uploader - Rolling Translations</title>
     <link rel="stylesheet" href="style.css" />
     <style>
-        /* —— Layout y tabla ——————————————————————————— */
         body {
             background: #fff;
         }
@@ -19,7 +18,7 @@
         }
 
         .logo {
-            max-width: fit-content;
+            height: 56px;
         }
 
         h1 {
@@ -69,14 +68,14 @@
             text-decoration: none;
         }
 
-        .btn:hover {
-            filter: brightness(0.97);
-        }
-
         .btn.primary {
             background: #2f66ff;
             color: #fff;
             border-color: #2f66ff;
+        }
+
+        .btn:hover {
+            filter: brightness(0.97);
         }
 
         .btn:disabled {
@@ -92,7 +91,7 @@
 
         table {
             width: 100%;
-            min-width: 1100px;
+            min-width: 1000px;
             border-collapse: collapse;
             table-layout: fixed;
         }
@@ -111,32 +110,30 @@
             font-weight: 700;
         }
 
-        /* Anchos afinados para que casi siempre entren sin scroll */
+        /* columnas más angostas */
         th.col-date,
         td.col-date {
-            width: 120px;
+            width: 92px;
         }
 
-        /* ↓ */
         th.col-client,
         td.col-client {
-            width: 200px;
+            width: 190px;
         }
 
         th.col-project,
         td.col-project {
-            width: 140px;
+            width: 110px;
         }
 
-        /* ↓ */
         th.col-langs,
         td.col-langs {
-            width: 170px;
+            width: 160px;
         }
 
         th.col-sources,
         td.col-sources {
-            width: 190px;
+            width: 140px;
         }
 
         th.col-status,
@@ -146,12 +143,12 @@
 
         th.col-deliver,
         td.col-deliver {
-            width: 210px;
+            width: 120px;
         }
 
         th.col-upload,
         td.col-upload {
-            width: 220px;
+            width: 230px;
         }
 
         tbody tr:nth-child(even) {
@@ -200,15 +197,54 @@
             background: #fff;
         }
 
-        .upload-wrap {
+        /* Upload column layout */
+        .upload-col {
             display: flex;
-            gap: 10px;
-            align-items: center;
-            flex-wrap: nowrap;
+            flex-direction: column;
+            gap: 8px;
         }
 
-        .upload-wrap input[type="file"] {
-            max-width: 160px;
+        .upload-col input[type="file"] {
+            width: 100%;
+        }
+
+        .pending-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 120px;
+            overflow: auto;
+        }
+
+        .pending-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 6px 8px;
+            background: #fff;
+            font-size: 12px;
+        }
+
+        .pending-item .name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .pending-item .remove {
+            border: none;
+            background: #ffe8e8;
+            color: #b42318;
+            border-radius: 8px;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+
+        .pending-item .remove:hover {
+            filter: brightness(0.98);
         }
     </style>
 </head>
@@ -283,6 +319,9 @@
 
         const STATUS_OPTIONS = ["Pending", "In progress", "Delivered", "Finalized", "Rejected"];
 
+        // acumulador de archivos pendientes por doc
+        const pending = new Map(); // docId -> File[]
+
         onAuthStateChanged(auth, async (user) => {
             if (!user) { location.href = "index.html"; return; }
             console.log("[AUTH] Logged in user:", user.email, "uid:", user.uid);
@@ -297,7 +336,6 @@
                     location.href = "index.html";
                     return;
                 }
-                console.log("[AUTH] Admin access granted ✅");
                 gate.classList.add("hidden");
                 toolbar.classList.remove("hidden");
                 table.classList.remove("hidden");
@@ -309,10 +347,8 @@
         });
 
         async function loadData() {
-            console.log("[LOAD] Fetching projectRequests…");
             const q = query(collection(db, "projectRequests"), orderBy("createdAt", "desc"));
             const snap = await getDocs(q);
-
             const rows = [];
             snap.forEach(d => {
                 const data = d.data();
@@ -330,31 +366,22 @@
                     projectId: data.projectId || ""
                 });
             });
-
-            console.log("[LOAD] Rows fetched:", rows.length);
             window.__allRows = rows;
             renderRows(rows);
         }
 
         function renderRows(rows) {
-            console.log("[RENDER] Rendering rows:", rows.length);
             tbody.innerHTML = "";
-            if (!rows.length) {
-                emptyState.classList.remove("hidden");
-                return;
-            }
-            emptyState.classList.add("hidden");
-
             const q = (searchInput.value || "").trim().toLowerCase();
-            const filtered = rows.filter(r => {
-                if (!q) return true;
-                return [r.fullname, r.email, r.projectId, r.status, r.sourceLang, r.targetLang, r.files.join(", "), r.notes]
-                    .join(" | ").toLowerCase().includes(q);
-            });
+            const filtered = rows.filter(r => !q || (
+                [r.fullname, r.email, r.projectId, r.status, r.sourceLang, r.targetLang, r.files.join(", "), r.notes]
+                    .join("|").toLowerCase().includes(q)
+            ));
+            if (!filtered.length) { emptyState.classList.remove("hidden"); return; }
+            emptyState.classList.add("hidden");
 
             for (const r of filtered) {
                 const tr = document.createElement("tr");
-
                 const dateText = r.createdAt ? r.createdAt.toLocaleString() : "N/A";
                 const langs = `${r.sourceLang} → ${r.targetLang}`;
                 const filesHtml = r.files.length
@@ -378,10 +405,12 @@
                     }).join("")}</div>`
                     : "—";
 
+                // upload column with accumulator UI
                 const uploadId = `up_${r.id}`;
                 const upHtml = `
-          <div class="upload-wrap">
+          <div class="upload-col" data-docid="${r.id}">
             <input type="file" id="${uploadId}" multiple />
+            <div class="pending-list" id="plist_${r.id}"></div>
             <button class="btn primary" data-docid="${r.id}" data-input="${uploadId}">Upload</button>
           </div>
         `;
@@ -400,20 +429,65 @@
           <td class="col-upload">${upHtml}</td>
         `;
                 tbody.appendChild(tr);
+
+                // wire up file input for accumulation
+                const input = document.getElementById(uploadId);
+                input.addEventListener("change", (e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (!files.length) return;
+                    const list = pending.get(r.id) || [];
+                    // evitar duplicados por name+size
+                    files.forEach(f => {
+                        if (!list.some(x => x.name === f.name && x.size === f.size)) list.push(f);
+                    });
+                    pending.set(r.id, list);
+                    e.target.value = ""; // permite elegir el mismo nombre otra vez si querés
+                    renderPendingList(r.id);
+                });
             }
 
+            // listeners de status & upload
             tbody.querySelectorAll("select.status-select").forEach(sel => sel.addEventListener("change", onStatusChange));
             tbody.querySelectorAll("button.btn.primary").forEach(btn => btn.addEventListener("click", onUploadClick));
+
+            // render pending lists existentes (si refrescaste)
+            filtered.forEach(r => renderPendingList(r.id));
+        }
+
+        function renderPendingList(docId) {
+            const cont = document.getElementById(`plist_${docId}`);
+            if (!cont) return;
+            cont.innerHTML = "";
+            const list = pending.get(docId) || [];
+            if (!list.length) {
+                cont.innerHTML = `<div class="small" style="opacity:.7">No pending files</div>`;
+                return;
+            }
+            list.forEach((f, idx) => {
+                const row = document.createElement("div");
+                row.className = "pending-item";
+                row.innerHTML = `
+          <span class="name" title="${el(f.name)}">${el(f.name)}</span>
+          <button class="remove" data-docid="${docId}" data-index="${idx}" title="Remove this file">✖</button>
+        `;
+                cont.appendChild(row);
+            });
+            cont.querySelectorAll("button.remove").forEach(b => b.addEventListener("click", (e) => {
+                const d = e.currentTarget.dataset.docid;
+                const i = Number(e.currentTarget.dataset.index);
+                const arr = pending.get(d) || [];
+                arr.splice(i, 1);
+                pending.set(d, arr);
+                renderPendingList(d);
+            }));
         }
 
         async function onStatusChange(e) {
             const sel = e.currentTarget;
             const docId = sel.dataset.docid;
             const value = sel.value;
-            console.log("[STATUS] Updating doc:", docId, "to:", value);
             try {
                 await updateDoc(doc(db, "projectRequests", docId), { status: value });
-                console.log("[STATUS] Update OK");
             } catch (err) {
                 console.error("[STATUS] Update failed:", err);
                 alert("Failed to update status: " + err.message);
@@ -424,16 +498,13 @@
             const btn = e.currentTarget;
             const docId = btn.dataset.docid;
             const inputId = btn.dataset.input;
-            const input = document.getElementById(inputId);
-            const files = Array.from(input.files || []);
-            if (!files.length) { alert("Select files first."); return; }
+            const list = pending.get(docId) || [];
+            if (!list.length) { alert("Add files first (use Choose files)."); return; }
 
-            console.log("[UPLOAD] Starting upload for docId:", docId, "files:", files.map(f => f.name));
             btn.disabled = true; btn.textContent = "Uploading…";
-
             try {
                 const updates = [];
-                for (const f of files) {
+                for (const f of list) {
                     const path = `deliverables/${docId}/${Date.now()}_${f.name}`;
                     const fileRef = ref(storage, path);
                     const metadata = {
@@ -448,8 +519,9 @@
                     deliverables: arrayUnion(...updates),
                     status: "Delivered"
                 });
-
-                input.value = "";
+                // limpiar pendientes de esa fila
+                pending.set(docId, []);
+                renderPendingList(docId);
                 await loadData();
             } catch (err) {
                 console.error("[UPLOAD] Failed:", err);
