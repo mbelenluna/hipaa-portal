@@ -65,7 +65,7 @@
             align-items: center;
             justify-content: center;
             height: 40px;
-            min-width: 110px;
+            max-width: 110px;
             padding: 0 16px;
             border: none;
             border-radius: 8px;
@@ -319,7 +319,7 @@
                     location.href = "index.html";
                     return;
                 }
-                gate.textContent = "Done ✅";
+                gate.textContent = "";
                 table.classList.remove("hidden");
                 await loadData();
             } catch (err) {
