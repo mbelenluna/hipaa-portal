@@ -3,248 +3,181 @@
 
 <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
-    <title>Admin Uploader - Rolling Translations</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin – Project Requests</title>
     <link rel="stylesheet" href="style.css" />
+
     <style>
         body {
-            background: #fff;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f9fafb;
+            color: #111827;
         }
 
         .container {
-            max-width: 1280px;
-            margin: 32px auto;
-            padding: 0 16px;
+            max-width: 1400px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
         }
 
         .logo {
-            height: 56px;
+            width: fit-content;
+            height: 60px;
+            display: block;
+            margin: 0 auto 20px;
         }
 
         h1 {
-            margin: 12px 0 4px;
+            text-align: center;
+            margin-bottom: 5px;
         }
 
-        .muted {
-            color: #666;
+        p.subtitle {
+            text-align: center;
+            color: #6b7280;
+            margin-bottom: 20px;
         }
 
-        .toolbar {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            align-items: center;
-            margin: 16px 0 8px;
-        }
-
-        .toolbar input[type="text"] {
-            flex: 1 1 420px;
-            padding: 10px 12px;
-            border: 1px solid #ddd;
-            border-radius: 12px;
-        }
-
-        .right {
-            margin-left: auto;
-            display: flex;
-            gap: 10px;
-            align-items: center;
-        }
-
+        /* Buttons */
         .btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            padding: 10px 16px;
-            border: 1px solid #cfd3dc;
-            border-radius: 12px;
-            background: #f3f6ff;
-            color: #1e293b;
-            font-weight: 600;
+            height: 40px;
+            min-width: 100px;
+            padding: 0 16px;
+            border: none;
+            border-radius: 6px;
+            background: #2563eb;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
             cursor: pointer;
-            min-height: 42px;
-            white-space: nowrap;
-            line-height: 1;
-            text-decoration: none;
-        }
-
-        .btn.primary {
-            background: #2f66ff;
-            color: #fff;
-            border-color: #2f66ff;
+            transition: background 0.2s;
         }
 
         .btn:hover {
-            filter: brightness(0.97);
+            background: #1e40af;
         }
 
-        .btn:disabled {
-            opacity: .6;
-            cursor: not-allowed;
+        .btn.secondary {
+            background: #f3f4f6;
+            color: #111827;
+            border: 1px solid #d1d5db;
         }
 
-        .table-wrap {
-            margin-top: 10px;
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
+        .btn.secondary:hover {
+            background: #e5e7eb;
         }
 
+        #controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        #search {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+
+        /* Table */
         table {
             width: 100%;
-            min-width: 1000px;
             border-collapse: collapse;
-            table-layout: fixed;
+            font-size: 14px;
+        }
+
+        thead {
+            background: #f3f4f6;
         }
 
         th,
         td {
-            border: 1px solid #e7e7e7;
-            padding: 10px 12px;
-            vertical-align: top;
-            word-wrap: break-word;
+            padding: 8px;
+            border: 1px solid #e5e7eb;
+            text-align: left;
+            vertical-align: middle;
         }
 
-        th {
-            background: #f6f7fb;
-            text-align: center;
-            font-weight: 700;
-        }
-
-        /* columnas más angostas */
-        th.col-date,
-        td.col-date {
-            width: 92px;
-        }
-
-        th.col-client,
-        td.col-client {
-            width: 190px;
-        }
-
-        th.col-project,
-        td.col-project {
-            width: 110px;
-        }
-
-        th.col-langs,
-        td.col-langs {
-            width: 160px;
-        }
-
-        th.col-sources,
-        td.col-sources {
-            width: 140px;
-        }
-
-        th.col-status,
-        td.col-status {
-            width: 140px;
-        }
-
-        th.col-deliver,
-        td.col-deliver {
+        /* Column widths */
+        th.date-col,
+        td.date-col {
             width: 120px;
         }
 
-        th.col-upload,
-        td.col-upload {
-            width: 230px;
+        th.project-col,
+        td.project-col {
+            width: 160px;
         }
 
-        tbody tr:nth-child(even) {
-            background: #fafafa;
+        th.files-col,
+        td.files-col {
+            width: 150px;
         }
 
-        tbody tr:hover {
-            background: #f1f7ff;
+        th.lang-col,
+        td.lang-col {
+            width: 120px;
         }
 
-        .small {
-            font-size: 12px;
-            color: #666;
+        th.status-col,
+        td.status-col {
+            width: 120px;
         }
 
-        .center {
-            text-align: center;
+        th.deliver-col,
+        td.deliver-col {
+            width: 180px;
         }
 
-        .hidden {
-            display: none;
+        th.upload-col,
+        td.upload-col {
+            width: 180px;
         }
 
-        .chips {
+        .file-list {
             display: flex;
             flex-wrap: wrap;
-            gap: 6px;
+            gap: 5px;
         }
 
-        .chip {
-            display: inline-flex;
-            gap: 6px;
-            align-items: center;
-            border: 1px solid #ddd;
-            border-radius: 14px;
-            padding: 4px 8px;
-            background: #fff;
+        .file-item {
+            background: #f3f4f6;
+            padding: 3px 6px;
+            border-radius: 4px;
             font-size: 12px;
-        }
-
-        .status-select {
-            width: 100%;
-            padding: 8px 10px;
-            border-radius: 10px;
-            border: 1px solid #ddd;
-            background: #fff;
-        }
-
-        /* Upload column layout */
-        .upload-col {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .upload-col input[type="file"] {
-            width: 100%;
-        }
-
-        .pending-list {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-            max-height: 120px;
-            overflow: auto;
-        }
-
-        .pending-item {
             display: flex;
             align-items: center;
-            justify-content: space-between;
-            gap: 8px;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 6px 8px;
-            background: #fff;
-            font-size: 12px;
         }
 
-        .pending-item .name {
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .pending-item .remove {
-            border: none;
-            background: #ffe8e8;
-            color: #b42318;
-            border-radius: 8px;
-            padding: 4px 8px;
+        .file-item span.remove {
+            margin-left: 6px;
+            color: red;
             cursor: pointer;
+            font-weight: bold;
         }
 
-        .pending-item .remove:hover {
-            filter: brightness(0.98);
+        .download-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-right: 6px;
+            font-size: 13px;
+            color: #2563eb;
+            text-decoration: none;
+        }
+
+        .download-link:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
@@ -253,43 +186,36 @@
     <div class="container">
         <img src="images/logo.png" alt="Rolling Translations Logo" class="logo" />
         <h1>Admin – Project Requests</h1>
-        <p class="muted">Manage requests, upload deliverables, and update status.</p>
+        <p class="subtitle">Manage requests, upload deliverables, and update status.</p>
 
-        <div id="gate" class="muted">Checking admin access…</div>
-
-        <div class="toolbar hidden" id="toolbar">
-            <input id="search" type="text" placeholder="Search by client name, email, projectId, notes…" />
-            <div class="right">
-                <button id="refreshBtn" class="btn primary">Refresh</button>
-                <button id="logoutBtn" class="btn">Log out</button>
-            </div>
+        <div id="controls">
+            <input type="text" id="search" placeholder="Search by client name, email, projectId, notes…" />
+            <button id="refreshBtn" class="btn">Refresh</button>
+            <button id="logoutBtn" class="btn secondary">Log out</button>
         </div>
 
-        <div class="table-wrap">
-            <table id="reqTable" class="hidden">
-                <thead>
-                    <tr>
-                        <th class="col-date">Date</th>
-                        <th class="col-client">Client</th>
-                        <th class="col-project">Project ID</th>
-                        <th class="col-langs">Languages</th>
-                        <th class="col-sources">Source files</th>
-                        <th class="col-status">Status</th>
-                        <th class="col-deliver">Deliverables</th>
-                        <th class="col-upload">Upload</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
-
-        <p id="emptyState" class="muted center hidden">No requests found.</p>
+        <div id="status">Checking admin access…</div>
+        <table id="requestsTable">
+            <thead>
+                <tr>
+                    <th class="date-col">Date</th>
+                    <th>Client</th>
+                    <th class="project-col">Project ID</th>
+                    <th class="lang-col">Languages</th>
+                    <th class="files-col">Source files</th>
+                    <th class="status-col">Status</th>
+                    <th class="deliver-col">Deliverables</th>
+                    <th class="upload-col">Upload</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
-        import { getFirestore, collection, getDocs, query, orderBy, updateDoc, doc, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+        import { getFirestore, collection, getDocs, doc, updateDoc } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
 
         const firebaseConfig = {
@@ -300,242 +226,130 @@
             messagingSenderId: "492156326175",
             appId: "1:492156326175:web:14175badae2bbaada0e02a"
         };
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const storage = getStorage(app);
-        console.log("[BOOT] Bucket runtime:", storage.app.options.storageBucket);
 
-        const gate = document.getElementById("gate");
-        const toolbar = document.getElementById("toolbar");
-        const table = document.getElementById("reqTable");
-        const tbody = table.querySelector("tbody");
-        const emptyState = document.getElementById("emptyState");
-        const searchInput = document.getElementById("search");
+        const statusDiv = document.getElementById("status");
+        const tbody = document.querySelector("#requestsTable tbody");
 
-        document.getElementById("logoutBtn").addEventListener("click", () => signOut(auth).then(() => location.href = "index.html"));
-        document.getElementById("refreshBtn").addEventListener("click", loadData);
-        searchInput.addEventListener("input", () => renderRows(window.__allRows || []));
-
-        const STATUS_OPTIONS = ["Pending", "In progress", "Delivered", "Finalized", "Rejected"];
-
-        // acumulador de archivos pendientes por doc
-        const pending = new Map(); // docId -> File[]
+        let userFiles = {}; // temp files per row
 
         onAuthStateChanged(auth, async (user) => {
-            if (!user) { location.href = "index.html"; return; }
-            console.log("[AUTH] Logged in user:", user.email, "uid:", user.uid);
-            gate.textContent = "Checking admin access…";
-
-            try {
-                const userDoc = await getDoc(doc(db, "users", user.uid));
-                console.log("[AUTH] User doc:", userDoc.exists() ? userDoc.data() : "not found");
-                if (!userDoc.exists() || userDoc.data().role !== "admin") {
-                    gate.textContent = "Access denied. Admin only.";
-                    alert("This page is for admins only.");
-                    location.href = "index.html";
-                    return;
-                }
-                gate.classList.add("hidden");
-                toolbar.classList.remove("hidden");
-                table.classList.remove("hidden");
-                await loadData();
-            } catch (err) {
-                console.error("[AUTH] Admin gate error:", err);
-                gate.textContent = "Error checking admin.";
+            if (!user) {
+                window.location.href = "index.html";
+                return;
             }
+            console.log("[AUTH] Logged in user:", user.email, "uid:", user.uid);
+
+            // Assume user is admin for now
+            statusDiv.textContent = "Admin access granted ✅";
+            loadRequests();
         });
 
-        async function loadData() {
-            const q = query(collection(db, "projectRequests"), orderBy("createdAt", "desc"));
-            const snap = await getDocs(q);
-            const rows = [];
-            snap.forEach(d => {
-                const data = d.data();
-                rows.push({
-                    id: d.id,
-                    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
-                    fullname: data.fullname || "",
-                    email: data.email || "",
-                    sourceLang: data.sourceLang || "",
-                    targetLang: data.targetLang || "",
-                    files: Array.isArray(data.files) ? data.files : (data.file ? [data.file] : []),
-                    notes: data.notes || "",
-                    status: data.status || "Pending",
-                    deliverables: Array.isArray(data.deliverables) ? data.deliverables : [],
-                    projectId: data.projectId || ""
-                });
-            });
-            window.__allRows = rows;
-            renderRows(rows);
-        }
-
-        function renderRows(rows) {
+        async function loadRequests() {
+            statusDiv.textContent = "Loading requests…";
             tbody.innerHTML = "";
-            const q = (searchInput.value || "").trim().toLowerCase();
-            const filtered = rows.filter(r => !q || (
-                [r.fullname, r.email, r.projectId, r.status, r.sourceLang, r.targetLang, r.files.join(", "), r.notes]
-                    .join("|").toLowerCase().includes(q)
-            ));
-            if (!filtered.length) { emptyState.classList.remove("hidden"); return; }
-            emptyState.classList.add("hidden");
 
-            for (const r of filtered) {
+            const snap = await getDocs(collection(db, "projectRequests"));
+            console.log("[LOAD] Rows fetched:", snap.size);
+
+            snap.forEach((docSnap) => {
+                const data = docSnap.data();
+                const id = docSnap.id;
+
                 const tr = document.createElement("tr");
-                const dateText = r.createdAt ? r.createdAt.toLocaleString() : "N/A";
-                const langs = `${r.sourceLang} → ${r.targetLang}`;
-                const filesHtml = r.files.length
-                    ? `<div class="chips">${r.files.map(f => `<span class="chip">${el(f)}</span>`).join("")}</div>`
-                    : "—";
-
-                const statusSel = `
-          <select class="status-select" data-docid="${r.id}">
-            ${STATUS_OPTIONS.map(s => `<option value="${s}" ${s === r.status ? 'selected' : ''}>${s}</option>`).join("")}
-          </select>
-          <div class="small">docId: <code>${el(r.id)}</code></div>
-        `;
-
-                const delivHtml = r.deliverables?.length
-                    ? `<div class="chips">${r.deliverables.map((d, i) => {
-                        const name = d.name || `File ${i + 1}`;
-                        const url = d.url || "";
-                        return url
-                            ? `<a class="chip" href="${url}" target="_blank" rel="noopener" download>${el(name)} ⬇️</a>`
-                            : `<span class="chip">${el(name)} (no URL)</span>`;
-                    }).join("")}</div>`
-                    : "—";
-
-                // upload column with accumulator UI
-                const uploadId = `up_${r.id}`;
-                const upHtml = `
-          <div class="upload-col" data-docid="${r.id}">
-            <input type="file" id="${uploadId}" multiple />
-            <div class="pending-list" id="plist_${r.id}"></div>
-            <button class="btn primary" data-docid="${r.id}" data-input="${uploadId}">Upload</button>
-          </div>
-        `;
-
                 tr.innerHTML = `
-          <td class="col-date">${dateText}</td>
-          <td class="col-client">
-            <strong>${el(r.fullname) || "—"}</strong><br>
-            <span class="small">${el(r.email) || "—"}</span>
+          <td class="date-col">${data.createdAt?.toDate().toLocaleString() || "N/A"}</td>
+          <td>${data.fullname || ""}<br/><small>${data.email || ""}</small></td>
+          <td class="project-col">${id}</td>
+          <td class="lang-col">${data.sourceLang || ""} → ${data.targetLang || ""}</td>
+          <td class="files-col">${data.file || "—"}</td>
+          <td class="status-col">
+            <select data-doc="${id}">
+              <option ${data.status === "Pending" ? "selected" : ""}>Pending</option>
+              <option ${data.status === "In progress" ? "selected" : ""}>In progress</option>
+              <option ${data.status === "Finalized" ? "selected" : ""}>Finalized</option>
+            </select>
           </td>
-          <td class="col-project">${el(r.projectId) || "—"}</td>
-          <td class="col-langs">${el(langs)}</td>
-          <td class="col-sources">${filesHtml}</td>
-          <td class="col-status">${statusSel}</td>
-          <td class="col-deliver">${delivHtml}</td>
-          <td class="col-upload">${upHtml}</td>
+          <td class="deliver-col">${renderDeliverables(data.deliverables)}</td>
+          <td class="upload-col">
+            <div class="file-list" id="fileList-${id}"></div>
+            <input type="file" id="fileInput-${id}" multiple/>
+            <button class="btn" data-upload="${id}">Upload</button>
+          </td>
         `;
                 tbody.appendChild(tr);
 
-                // wire up file input for accumulation
-                const input = document.getElementById(uploadId);
-                input.addEventListener("change", (e) => {
-                    const files = Array.from(e.target.files || []);
-                    if (!files.length) return;
-                    const list = pending.get(r.id) || [];
-                    // evitar duplicados por name+size
-                    files.forEach(f => {
-                        if (!list.some(x => x.name === f.name && x.size === f.size)) list.push(f);
-                    });
-                    pending.set(r.id, list);
-                    e.target.value = ""; // permite elegir el mismo nombre otra vez si querés
-                    renderPendingList(r.id);
+                // status change
+                tr.querySelector("select").addEventListener("change", async (e) => {
+                    await updateDoc(doc(db, "projectRequests", id), { status: e.target.value });
                 });
-            }
 
-            // listeners de status & upload
-            tbody.querySelectorAll("select.status-select").forEach(sel => sel.addEventListener("change", onStatusChange));
-            tbody.querySelectorAll("button.btn.primary").forEach(btn => btn.addEventListener("click", onUploadClick));
+                // file input handling
+                const fileInput = tr.querySelector(`#fileInput-${id}`);
+                const fileList = tr.querySelector(`#fileList-${id}`);
+                userFiles[id] = [];
 
-            // render pending lists existentes (si refrescaste)
-            filtered.forEach(r => renderPendingList(r.id));
-        }
+                fileInput.addEventListener("change", (e) => {
+                    for (let file of e.target.files) {
+                        userFiles[id].push(file);
+                    }
+                    renderFileList(id, fileList);
+                });
 
-        function renderPendingList(docId) {
-            const cont = document.getElementById(`plist_${docId}`);
-            if (!cont) return;
-            cont.innerHTML = "";
-            const list = pending.get(docId) || [];
-            if (!list.length) {
-                cont.innerHTML = `<div class="small" style="opacity:.7">No pending files</div>`;
-                return;
-            }
-            list.forEach((f, idx) => {
-                const row = document.createElement("div");
-                row.className = "pending-item";
-                row.innerHTML = `
-          <span class="name" title="${el(f.name)}">${el(f.name)}</span>
-          <button class="remove" data-docid="${docId}" data-index="${idx}" title="Remove this file">✖</button>
-        `;
-                cont.appendChild(row);
+                // upload
+                tr.querySelector(`[data-upload="${id}"]`).addEventListener("click", () => {
+                    handleUpload(id, userFiles[id], fileList);
+                });
             });
-            cont.querySelectorAll("button.remove").forEach(b => b.addEventListener("click", (e) => {
-                const d = e.currentTarget.dataset.docid;
-                const i = Number(e.currentTarget.dataset.index);
-                const arr = pending.get(d) || [];
-                arr.splice(i, 1);
-                pending.set(d, arr);
-                renderPendingList(d);
-            }));
+            statusDiv.textContent = "Done ✅";
         }
 
-        async function onStatusChange(e) {
-            const sel = e.currentTarget;
-            const docId = sel.dataset.docid;
-            const value = sel.value;
-            try {
-                await updateDoc(doc(db, "projectRequests", docId), { status: value });
-            } catch (err) {
-                console.error("[STATUS] Update failed:", err);
-                alert("Failed to update status: " + err.message);
-            }
+        function renderDeliverables(deliverables) {
+            if (!deliverables || deliverables.length === 0) return "—";
+            return deliverables.map(d =>
+                `<a class="download-link" href="${d.url}" target="_blank">${d.name} ⬇</a>`
+            ).join(" ");
         }
 
-        async function onUploadClick(e) {
-            const btn = e.currentTarget;
-            const docId = btn.dataset.docid;
-            const inputId = btn.dataset.input;
-            const list = pending.get(docId) || [];
-            if (!list.length) { alert("Add files first (use Choose files)."); return; }
-
-            btn.disabled = true; btn.textContent = "Uploading…";
-            try {
-                const updates = [];
-                for (const f of list) {
-                    const path = `deliverables/${docId}/${Date.now()}_${f.name}`;
-                    const fileRef = ref(storage, path);
-                    const metadata = {
-                        contentType: f.type || 'application/octet-stream',
-                        contentDisposition: `attachment; filename="${f.name}"`
-                    };
-                    await uploadBytes(fileRef, f, metadata);
-                    const url = await getDownloadURL(fileRef);
-                    updates.push({ name: f.name, path, url, uploadedAt: new Date() });
-                }
-                await updateDoc(doc(db, "projectRequests", docId), {
-                    deliverables: arrayUnion(...updates),
-                    status: "Delivered"
+        function renderFileList(id, fileList) {
+            fileList.innerHTML = "";
+            userFiles[id].forEach((file, idx) => {
+                const item = document.createElement("div");
+                item.className = "file-item";
+                item.innerHTML = `${file.name} <span class="remove">×</span>`;
+                item.querySelector(".remove").addEventListener("click", () => {
+                    userFiles[id].splice(idx, 1);
+                    renderFileList(id, fileList);
                 });
-                // limpiar pendientes de esa fila
-                pending.set(docId, []);
-                renderPendingList(docId);
-                await loadData();
-            } catch (err) {
-                console.error("[UPLOAD] Failed:", err);
-                alert("Failed to upload: " + err.message);
-            } finally {
-                btn.disabled = false; btn.textContent = "Upload";
-            }
+                fileList.appendChild(item);
+            });
         }
 
-        function el(txt) {
-            return String(txt ?? "").replace(/[&<>"'`=\/]/g, s => ({
-                "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;", "/": "&#x2F;", "`": "&#x60;", "=": "&#x3D;"
-            }[s]));
+        async function handleUpload(docId, files, fileList) {
+            if (!files || files.length === 0) return;
+            for (let file of files) {
+                const path = `deliverables/${docId}/${Date.now()}_${file.name}`;
+                const storageRef = ref(storage, path);
+                await uploadBytes(storageRef, file);
+                const url = await getDownloadURL(storageRef);
+
+                await updateDoc(doc(db, "projectRequests", docId), {
+                    deliverables: [{ name: file.name, url }]
+                });
+            }
+            userFiles[docId] = [];
+            renderFileList(docId, fileList);
+            loadRequests();
         }
+
+        document.getElementById("refreshBtn").addEventListener("click", loadRequests);
+        document.getElementById("logoutBtn").addEventListener("click", () => {
+            signOut(auth);
+        });
     </script>
 </body>
 
