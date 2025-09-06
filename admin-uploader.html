@@ -7,6 +7,7 @@
     <title>Admin Uploader - Rolling Translations</title>
     <link rel="stylesheet" href="style.css" />
     <style>
+        /* —— Layout y tabla ——————————————————————————— */
         body {
             background: #fff;
         }
@@ -18,9 +19,10 @@
         }
 
         .logo {
-            max-width: fit-content;
+            width: fit-content;
         }
 
+        /* pedido */
         h1 {
             margin: 12px 0 4px;
         }
@@ -91,7 +93,7 @@
 
         table {
             width: 100%;
-            min-width: 1000px;
+            min-width: 980px;
             border-collapse: collapse;
             table-layout: fixed;
         }
@@ -110,10 +112,10 @@
             font-weight: 700;
         }
 
-        /* columnas más angostas */
+        /* columnas compactas (ajustadas según tu pedido) */
         th.col-date,
         td.col-date {
-            width: 80px;
+            width: 76px;
         }
 
         th.col-client,
@@ -123,34 +125,36 @@
 
         th.col-project,
         td.col-project {
-            width: 100px;
+            width: 96px;
         }
 
         th.col-langs,
         td.col-langs {
-            width: 120px;
-        }
-
-        /* más chico */
-        th.col-sources,
-        td.col-sources {
-            width: 120px;
-        }
-
-        th.col-status,
-        td.col-status {
-            width: 120px;
-        }
-
-        /* más chico */
-        th.col-deliver,
-        td.col-deliver {
             width: 110px;
         }
 
+        /* más chica */
+        th.col-sources,
+        td.col-sources {
+            width: 110px;
+        }
+
+        /* más chica */
+        th.col-status,
+        td.col-status {
+            width: 110px;
+        }
+
+        /* más chica */
+        th.col-deliver,
+        td.col-deliver {
+            width: 100px;
+        }
+
+        /* mitad aprox. */
         th.col-upload,
         td.col-upload {
-            width: 220px;
+            width: 230px;
         }
 
         tbody tr:nth-child(even) {
@@ -262,6 +266,7 @@
         <div class="toolbar hidden" id="toolbar">
             <input id="search" type="text" placeholder="Search by client name, email, projectId, notes…" />
             <div class="right">
+                <button id="refreshBtn" class="btn primary">Refresh</button>
                 <button id="logoutBtn" class="btn">Log out</button>
             </div>
         </div>
@@ -293,6 +298,7 @@
         import { getFirestore, collection, getDocs, query, orderBy, updateDoc, doc, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
 
+        /* Firebase init */
         const firebaseConfig = {
             apiKey: "AIzaSyBYjq_CaTEfFhfTChfJ6SnXSbgIzbbRHHc",
             authDomain: "rollingtranslationsportal.firebaseapp.com",
@@ -307,22 +313,26 @@
         const storage = getStorage(app);
         console.log("[BOOT] Bucket runtime:", storage.app.options.storageBucket);
 
+        /* DOM refs (existen en el HTML antes de este script) */
         const gate = document.getElementById("gate");
         const toolbar = document.getElementById("toolbar");
         const table = document.getElementById("reqTable");
         const tbody = table.querySelector("tbody");
         const emptyState = document.getElementById("emptyState");
         const searchInput = document.getElementById("search");
+        const logoutBtn = document.getElementById("logoutBtn");
+        const refreshBtn = document.getElementById("refreshBtn");
 
-        document.getElementById("logoutBtn").addEventListener("click", () => signOut(auth).then(() => location.href = "index.html"));
-        document.getElementById("refreshBtn").addEventListener("click", loadData);
+        /* Listeners seguros (no-null) */
+        logoutBtn.addEventListener("click", () => signOut(auth).then(() => location.href = "index.html"));
+        refreshBtn.addEventListener("click", loadData);
         searchInput.addEventListener("input", () => renderRows(window.__allRows || []));
 
+        /* Estado */
         const STATUS_OPTIONS = ["Pending", "In progress", "Delivered", "Finalized", "Rejected"];
-
-        // acumulador de archivos pendientes por doc
         const pending = new Map(); // docId -> File[]
 
+        /* Admin gate */
         onAuthStateChanged(auth, async (user) => {
             if (!user) { location.href = "index.html"; return; }
             console.log("[AUTH] Logged in user:", user.email, "uid:", user.uid);
@@ -337,6 +347,7 @@
                     location.href = "index.html";
                     return;
                 }
+                console.log("[AUTH] Admin access granted ✅");
                 gate.classList.add("hidden");
                 toolbar.classList.remove("hidden");
                 table.classList.remove("hidden");
@@ -347,9 +358,12 @@
             }
         });
 
+        /* Carga + Render */
         async function loadData() {
+            console.log("[LOAD] Fetching projectRequests…");
             const q = query(collection(db, "projectRequests"), orderBy("createdAt", "desc"));
             const snap = await getDocs(q);
+
             const rows = [];
             snap.forEach(d => {
                 const data = d.data();
@@ -367,22 +381,29 @@
                     projectId: data.projectId || ""
                 });
             });
+
+            console.log("[LOAD] Rows fetched:", rows.length);
             window.__allRows = rows;
             renderRows(rows);
         }
 
         function renderRows(rows) {
+            console.log("[RENDER] Rendering rows:", rows.length);
             tbody.innerHTML = "";
             const q = (searchInput.value || "").trim().toLowerCase();
-            const filtered = rows.filter(r => !q || (
-                [r.fullname, r.email, r.projectId, r.status, r.sourceLang, r.targetLang, r.files.join(", "), r.notes]
-                    .join("|").toLowerCase().includes(q)
-            ));
+
+            const filtered = rows.filter(r => {
+                if (!q) return true;
+                return [r.fullname, r.email, r.projectId, r.status, r.sourceLang, r.targetLang, r.files.join(", "), r.notes]
+                    .join("|").toLowerCase().includes(q);
+            });
+
             if (!filtered.length) { emptyState.classList.remove("hidden"); return; }
             emptyState.classList.add("hidden");
 
             for (const r of filtered) {
                 const tr = document.createElement("tr");
+
                 const dateText = r.createdAt ? r.createdAt.toLocaleString() : "N/A";
                 const langs = `${r.sourceLang} → ${r.targetLang}`;
                 const filesHtml = r.files.length
@@ -406,7 +427,6 @@
                     }).join("")}</div>`
                     : "—";
 
-                // upload column with accumulator UI
                 const uploadId = `up_${r.id}`;
                 const upHtml = `
           <div class="upload-col" data-docid="${r.id}">
@@ -431,27 +451,26 @@
         `;
                 tbody.appendChild(tr);
 
-                // wire up file input for accumulation
+                // input para acumular archivos
                 const input = document.getElementById(uploadId);
                 input.addEventListener("change", (e) => {
                     const files = Array.from(e.target.files || []);
                     if (!files.length) return;
                     const list = pending.get(r.id) || [];
-                    // evitar duplicados por name+size
                     files.forEach(f => {
                         if (!list.some(x => x.name === f.name && x.size === f.size)) list.push(f);
                     });
                     pending.set(r.id, list);
-                    e.target.value = ""; // permite elegir el mismo nombre otra vez si querés
+                    e.target.value = ""; // permite volver a elegir mismo nombre
                     renderPendingList(r.id);
                 });
             }
 
-            // listeners de status & upload
+            // eventos
             tbody.querySelectorAll("select.status-select").forEach(sel => sel.addEventListener("change", onStatusChange));
             tbody.querySelectorAll("button.btn.primary").forEach(btn => btn.addEventListener("click", onUploadClick));
 
-            // render pending lists existentes (si refrescaste)
+            // refrescar listas pendientes (si hubiera)
             filtered.forEach(r => renderPendingList(r.id));
         }
 
@@ -469,7 +488,7 @@
                 row.className = "pending-item";
                 row.innerHTML = `
           <span class="name" title="${el(f.name)}">${el(f.name)}</span>
-          <button class="remove" data-docid="${docId}" data-index="${idx}" title="Remove this file">✖</button>
+          <button class="remove" data-docid="${docId}" data-index="${idx}" title="Remove">✖</button>
         `;
                 cont.appendChild(row);
             });
@@ -498,7 +517,6 @@
         async function onUploadClick(e) {
             const btn = e.currentTarget;
             const docId = btn.dataset.docid;
-            const inputId = btn.dataset.input;
             const list = pending.get(docId) || [];
             if (!list.length) { alert("Add files first (use Choose files)."); return; }
 
@@ -520,7 +538,6 @@
                     deliverables: arrayUnion(...updates),
                     status: "Delivered"
                 });
-                // limpiar pendientes de esa fila
                 pending.set(docId, []);
                 renderPendingList(docId);
                 await loadData();
