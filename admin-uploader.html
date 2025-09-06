@@ -44,9 +44,8 @@
         /* Control bar */
         #controls {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 12px;
-            margin-bottom: 14px;
             flex-wrap: wrap;
         }
 
@@ -74,7 +73,7 @@
             cursor: pointer;
             transition: filter .15s;
             flex: 0 0 auto;
-            /* 👈 que NO crezcan */
+            margin-top: 0!important;
         }
 
         .btn.primary {
@@ -353,7 +352,7 @@
 
             window.__allRows = rows;
             renderRows(rows);
-            gate.textContent = "Done ✅";
+            gate.textContent = "";
         }
 
         function renderRows(rows) {
