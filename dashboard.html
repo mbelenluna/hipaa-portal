@@ -14,6 +14,7 @@
             table-layout: fixed;
             margin-top: 16px;
         }
+
         #requestsTable th,
         #requestsTable td {
             border: 1px solid #ddd;
@@ -21,27 +22,33 @@
             text-align: left;
             word-wrap: break-word;
         }
+
         #requestsTable th {
             background: #f4f4f4;
             font-weight: 700;
             text-align: center;
         }
+
         #requestsTable tbody tr:nth-child(even) {
             background: #fafafa;
         }
+
         #requestsTable tbody tr:hover {
             background: #f1f7ff;
         }
+
         .actions {
             margin: 12px 0;
             display: flex;
             gap: 10px;
             flex-wrap: wrap;
         }
+
         .muted {
             color: #666;
             margin: 16px 0;
         }
+
         .badge {
             display: inline-block;
             padding: 4px 8px;
@@ -50,9 +57,23 @@
             font-weight: 600;
             background: #eee;
         }
-        .badge.pending { background: #fff5e6; }
-        .badge.delivered { background: #e9f8ef; }
-        .badge.progress { background: #eaf2ff; }
+
+        .badge.pending {
+            background: #fff5e6;
+        }
+
+        .badge.delivered {
+            background: #e9f8ef;
+        }
+
+        .badge.progress {
+            background: #eaf2ff;
+        }
+
+        #requestsTable tbody tr.rush {
+            background: #fff1f2;
+            /* light red */
+        }
     </style>
 </head>
 
@@ -223,4 +244,5 @@
     </script>
 
 </body>
+
 </html>

@@ -147,4 +147,13 @@ p {
     /* highlight on hover */
 }
 
-.rush-flag{color:#c1121f;font-weight:700}
+.rush-flag {
+    color: #c1121f;
+    font-weight: 700
+}
+
+/* Rush highlight for table rows */
+#requestsTable tr.rush,
+table tr.rush {
+    background: #ffecec !important;
+}
