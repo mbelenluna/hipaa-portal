@@ -7,213 +7,52 @@
     <title>My Requests - Rolling Translations</title>
     <link rel="stylesheet" href="style.css" />
     <style>
-        :root {
-            --bg: #0b1020;
-            --card: #121a33;
-            --muted: #9fb2d9;
-            --text: #eaf0ff;
-            --accent: #6ea8ff;
-            --ok: #22c55e;
-            --warn: #f59e0b;
-            --pend: #93c5fd;
-            --danger: #ef4444;
+        /* ---- Table polish ---- */
+        #requestsTable {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            margin-top: 16px;
         }
-
-        body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, "Helvetica Neue", Arial
+        #requestsTable th,
+        #requestsTable td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+            word-wrap: break-word;
         }
-
-        .container {
-            max-width: 1100px;
-            margin: 24px auto;
-            padding: 20px;
-            background: var(--card);
-            border-radius: 14px;
-            box-shadow: 0 6px 24px rgba(0, 0, 0, .35)
+        #requestsTable th {
+            background: #f4f4f4;
+            font-weight: 700;
+            text-align: center;
         }
-
-        .logo {
-            width: fit-content;
-            max-height: 56px;
-            margin-bottom: 10px
+        #requestsTable tbody tr:nth-child(even) {
+            background: #fafafa;
         }
-
-        h1 {
-            margin: 6px 0 14px
+        #requestsTable tbody tr:hover {
+            background: #f1f7ff;
         }
-
-        .toolbar {
+        .actions {
+            margin: 12px 0;
             display: flex;
             gap: 10px;
-            align-items: center;
-            justify-content: space-between;
-            margin: 10px 0 16px
+            flex-wrap: wrap;
         }
-
-        .btn {
-            background: #1c2750;
-            border: none;
-            color: #eaf0ff;
-            padding: 10px 14px;
-            border-radius: 10px;
-            cursor: pointer
-        }
-
-        .btn:hover {
-            background: #223064
-        }
-
-        .btn.secondary {
-            background: transparent;
-            border: 1px solid #2c3b74
-        }
-
-        .empty {
-            padding: 18px;
-            border: 1px dashed #2b3b73;
-            border-radius: 12px;
-            color: var(--muted);
-            margin-top: 8px
-        }
-
         .muted {
-            color: var(--muted)
+            color: #666;
+            margin: 16px 0;
         }
-
-        .rush-flag {
-            color: #ff4d4d;
-            font-weight: 700
-        }
-
-        /* table */
-        .table-wrap {
-            overflow: auto;
-            border: 1px solid #243466;
-            border-radius: 12px
-        }
-
-        table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            table-layout: fixed
-        }
-
-        thead th {
-            position: sticky;
-            top: 0;
-            background: #0f1630;
-            z-index: 1
-        }
-
-        th,
-        td {
-            padding: 10px 12px;
-            border-bottom: 1px solid #1f2b58;
-            vertical-align: middle;
-            word-break: break-word
-        }
-
-        tbody tr:hover {
-            background: #0e1531
-        }
-
-        /* Column widths via colgroup */
-        col.c-date {
-            width: 8rem
-        }
-
-        col.c-pid {
-            width: 12rem
-        }
-
-        col.c-langs {
-            width: 12rem
-        }
-
-        col.c-files {
-            width: 11rem
-        }
-
-        col.c-status {
-            width: 9rem
-        }
-
-        col.c-notes {
-            width: 16rem
-        }
-
-        col.c-dels {
-            width: 12rem
-        }
-
         .badge {
             display: inline-block;
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-size: .85rem;
-            font-weight: 600
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #eee;
         }
-
-        .badge.pending {
-            background: #eaf2ff;
-            color: #174ea6
-        }
-
-        .badge.progress {
-            background: #fff7e6;
-            color: #92400e
-        }
-
-        .badge.done {
-            background: #e7f8ef;
-            color: #065f46
-        }
-
-        .badge.blocked {
-            background: #ffeaea;
-            color: #b91c1c
-        }
-
-        /* Download links as compact chips */
-        .dlinks {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 6px
-        }
-
-        .chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 10px;
-            background: #111a36;
-            border: 1px solid #223064;
-            border-radius: 999px;
-            font-size: .9rem
-        }
-
-        .chip a {
-            color: #cfe0ff;
-            text-decoration: none
-        }
-
-        .chip a:hover {
-            text-decoration: underline
-        }
-
-        .arrow {
-            font-size: 1rem;
-            display: inline-block
-        }
-
-        /* Loading */
-        .loading {
-            color: var(--muted);
-            font-style: italic
-        }
+        .badge.pending { background: #fff5e6; }
+        .badge.delivered { background: #e9f8ef; }
+        .badge.progress { background: #eaf2ff; }
     </style>
 </head>
 
@@ -222,51 +61,36 @@
         <img src="images/logo.png" alt="Rolling Translations Logo" class="logo" />
         <h1>Your Translation Requests</h1>
 
-        <div class="toolbar">
-            <div class="muted">View and download your projects.</div>
-            <div style="display:flex;gap:8px">
-                <button class="btn" id="newReqBtn">Submit a new request</button>
-                <button class="btn secondary" id="logoutBtn">Log out</button>
-            </div>
+        <p id="emptyState" class="muted" style="display:none;">No active requests.</p>
+
+        <div class="actions">
+            <button id="newRequestBtn">Submit a new request</button>
         </div>
 
-        <div id="loading" class="loading">Loading your requests…</div>
-        <div id="emptyState" class="empty" style="display:none;">No active requests.</div>
+        <table id="requestsTable" style="display:none;">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Project ID</th>
+                    <th>Languages</th>
+                    <th>File(s)</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Deliverables</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
 
-        <div class="table-wrap" id="tableWrap" style="display:none;">
-            <table id="requestsTable" role="table" aria-label="Your requests">
-                <colgroup>
-                    <col class="c-date">
-                    <col class="c-pid">
-                    <col class="c-langs">
-                    <col class="c-files">
-                    <col class="c-status">
-                    <col class="c-notes">
-                    <col class="c-dels">
-                </colgroup>
-                <thead>
-                    <tr>
-                        <th>Date</th>
-                        <th>Project ID</th>
-                        <th>Languages</th>
-                        <th>Source files</th>
-                        <th>Status</th>
-                        <th>Notes</th>
-                        <th>Downloadables</th>
-                    </tr>
-                </thead>
-                <tbody></tbody>
-            </table>
-        </div>
+        <button id="logoutBtn">Log out</button>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
-        import { getFirestore, collection, query, where, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+        import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
         import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
 
-        // Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBYjq_CaTEfFhfTChfJ6SnXSbgIzbbRHHc",
             authDomain: "rollingtranslationsportal.firebaseapp.com",
@@ -280,123 +104,122 @@
         const db = getFirestore(app);
         const storage = getStorage(app);
 
-        const tbody = document.querySelector("#requestsTable tbody");
-        const loadingEl = document.getElementById("loading");
-        const emptyEl = document.getElementById("emptyState");
-        const tableWrap = document.getElementById("tableWrap");
+        const table = document.getElementById("requestsTable");
+        const tbody = table.querySelector("tbody");
+        const emptyState = document.getElementById("emptyState");
 
-        // Buttons
-        document.getElementById("newReqBtn").addEventListener("click", () => location.href = "submit-request.html");
-        document.getElementById("logoutBtn").addEventListener("click", () => signOut(auth).then(() => location.href = "index.html"));
+        document.getElementById("newRequestBtn")?.addEventListener("click", () => {
+            window.location.href = "submit-request.html";
+        });
+        document.getElementById("logoutBtn")?.addEventListener("click", () => {
+            signOut(auth).then(() => (window.location.href = "index.html"));
+        });
 
-        // Helpers
-        const el = (s) => (s ?? "—");
-        const statusBadge = (statusRaw) => {
-            const s = (statusRaw || "Pending").toLowerCase();
-            if (s.includes("final")) return `<span class="badge done">Finalized</span>`;
-            if (s.includes("progress")) return `<span class="badge progress">In progress</span>`;
-            if (s.includes("block")) return `<span class="badge blocked">Blocked</span>`;
-            if (s.includes("proof")) return `<span class="badge progress">Pending proofreading</span>`;
-            return `<span class="badge pending">Pending</span>`;
-        };
-
-        // Build Download links from deliverables (supports {url,name} or {path})
-        async function filesLinks(deliverables) {
-            if (!Array.isArray(deliverables) || !deliverables.length) {
-                return `<span class="muted">Unavailable</span>`;
-            }
-            const parts = [];
-            for (const [idx, item] of deliverables.entries()) {
-                try {
-                    let url = item.url;
-                    if (!url && item.path) {
-                        const r = ref(storage, item.path);
-                        url = await getDownloadURL(r);
-                    }
-                    if (!url) { parts.push(`<span class="chip muted">File ${idx + 1} <span class="arrow">↧</span></span>`); continue; }
-                    const label = item.name || `File ${idx + 1}`;
-                    parts.push(`<span class="chip"><span class="arrow">↧</span> <a href="${url}" target="_blank" rel="noopener">${label}</a></span>`);
-                } catch (err) {
-                    parts.push(`<span class="chip muted">File ${idx + 1} (Unavailable)</span>`);
-                }
-            }
-            return `<div class="dlinks">${parts.join("")}</div>`;
+        function statusBadge(txt) {
+            const t = (txt || "Pending").toLowerCase();
+            let cls = "badge";
+            if (t.includes("pending")) cls += " pending";
+            else if (t.includes("deliver")) cls += " delivered";
+            else cls += " progress";
+            return `<span class="${cls}">${txt || "Pending"}</span>`;
         }
 
-        // If some legacy docs don't have projectId, derive one similar to submit flow
-        function fallbackProjectId(data, createdAt) {
+        function toProjectId(data, createdAtDate) {
             const src = (data.sourceLang || "").replace(/[^A-Za-z]/g, "");
             const tgt = (data.targetLang || "").replace(/[^A-Za-z]/g, "");
-            const first = (Array.isArray(data.files) && data.files[0] || data.file || "").replace(/[^A-Za-z]/g, "").slice(0, 10);
-            const d = createdAt ? createdAt.toDate?.() || createdAt : new Date();
-            const MM = String(d.getMonth() + 1).padStart(2, "0"), DD = String(d.getDate()).padStart(2, "0"),
-                YY = String(d.getFullYear()).slice(-2), HH = String(d.getHours()).padStart(2, "0"),
-                mm = String(d.getMinutes()).padStart(2, "0");
-            return `${src}${tgt}${first}${MM}${DD}${YY}${HH}${mm}`;
+            const file = (data.file || "").replace(/[^A-Za-z]/g, "").slice(0, 10);
+            const d = createdAtDate || new Date();
+            const MM = String(d.getMonth() + 1).padStart(2, "0");
+            const DD = String(d.getDate()).padStart(2, "0");
+            const YY = String(d.getFullYear()).slice(-2);
+            const HH = String(d.getHours()).padStart(2, "0");
+            const mm = String(d.getMinutes()).padStart(2, "0");
+            return `${src}${tgt}${file}${MM}${DD}${YY}${HH}${mm}`;
+        }
+
+        async function filesLinks(deliverables) {
+            if (!deliverables || !deliverables.length) return "—";
+            const parts = await Promise.all(
+                deliverables.map(async (d, i) => {
+                    try {
+                        if (d.url) return `<a href="${d.url}" target="_blank" rel="noopener">File ${i + 1} ⬇️</a>`;
+                        if (!d.path) return `<span>Unavailable</span>`;
+                        const url = await getDownloadURL(ref(storage, d.path));
+                        return `<a href="${url}" target="_blank" rel="noopener">File ${i + 1} ⬇️</a>`;
+                    } catch {
+                        return `<span>Unavailable</span>`;
+                    }
+                })
+            );
+            return parts.join(" · ");
         }
 
         onAuthStateChanged(auth, async (user) => {
-            if (!user) { location.href = "index.html"; return; }
-
+            if (!user) {
+                window.location.href = "index.html";
+                return;
+            }
             try {
-                const q = query(
-                    collection(db, "projectRequests"),
-                    where("email", "==", user.email),
-                    orderBy("createdAt", "desc")
-                );
+                const q = query(collection(db, "projectRequests"), where("email", "==", user.email));
                 const snap = await getDocs(q);
 
-                loadingEl.style.display = "none";
-
                 if (snap.empty) {
-                    emptyEl.style.display = "block";
-                    tableWrap.style.display = "none";
+                    emptyState.style.display = "block";
+                    table.style.display = "none";
                     return;
                 }
 
-                tableWrap.style.display = "block";
                 const rows = [];
-                for (const doc of snap.docs) {
+                snap.forEach(doc => {
                     const data = doc.data();
-                    const createdAt = data.createdAt;
-                    const dateText = createdAt?.toDate?.().toLocaleString() || "N/A";
+                    const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : null;
+                    rows.push({ id: doc.id, data, createdAt });
+                });
+                rows.sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
 
-                    const pid = data.projectId || fallbackProjectId(data, createdAt);
-                    const pidHtml = data.rush ? `${pid} <span class="rush-flag">(RUSH)</span>` : pid;
-
-                    const langs = `${el(data.sourceLang)} → ${el(data.targetLang)}`;
-
-                    // source files (support array or single string)
-                    let fileNames = "—";
-                    if (Array.isArray(data.files) && data.files.length) {
-                        fileNames = data.files.join(", ");
-                    } else if (typeof data.file === "string" && data.file) {
-                        fileNames = data.file;
-                    }
-
+                tbody.innerHTML = "";
+                for (const { id, data, createdAt } of rows) {
+                    const dateText = createdAt ? createdAt.toLocaleString() : "N/A";
+                    const langs = `${data.sourceLang || ""} → ${data.targetLang || ""}`;
                     const status = data.status || "Pending";
-                    const notes = data.notes || "—";
-                    const dlinks = await filesLinks(data.deliverables);
+                    const pid = data.projectId || toProjectId(data, createdAt);
 
-                    rows.push(`
-            <tr>
-              <td>${dateText}</td>
-              <td>${pidHtml}</td>
-              <td>${langs}</td>
-              <td>${fileNames}</td>
-              <td>${statusBadge(status)}</td>
-              <td>${notes}</td>
-              <td>${dlinks}</td>
-            </tr>
-          `);
+                    // ✅ FIX: show all uploaded files
+                    const fileNames = (Array.isArray(data.files) && data.files.length > 0)
+                        ? data.files.map(f => el(f.name || f)).join(", ")
+                        : (data.file ? el(data.file) : "—");
+
+                    const filesHtml = await filesLinks(data.deliverables);
+
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td>${dateText}</td>
+                        <td>${pid}</td>
+                        <td>${el(langs)}</td>
+                        <td>${fileNames}</td>
+                        <td>${statusBadge(status)}</td>
+                        <td>${el(data.notes || "—")}</td>
+                        <td>${filesHtml}</td>
+                    `;
+                    tbody.appendChild(tr);
                 }
-                tbody.innerHTML = rows.join("");
+
+                emptyState.style.display = "none";
+                table.style.display = "table";
             } catch (err) {
-                loadingEl.textContent = "Error loading your requests.";
-                console.error(err);
+                console.error("[FS] Firestore error:", err);
+                emptyState.textContent = "No active requests.";
+                emptyState.style.display = "block";
+                table.style.display = "none";
             }
         });
-    </script>
-</body>
 
+        function el(txt) {
+            return String(txt).replace(/[&<>"'`=\/]/g, s => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;", "/": "&#x2F;", "`": "&#x60;", "=": "&#x3D;"
+            }[s]));
+        }
+    </script>
+
+</body>
 </html>
