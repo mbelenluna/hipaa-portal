@@ -14,20 +14,20 @@
             padding: 18px;
             text-align: center;
             background: #f7faff;
-            transition: background 0.15s, border-color 0.15s;
-            cursor: pointer;
+            transition: background .15s, border-color .15s;
+            cursor: pointer
         }
 
         .dropzone.dragover {
             background: #eef4ff;
-            border-color: #5b82ff;
+            border-color: #5b82ff
         }
 
         .files-list {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            margin-top: 10px;
+            margin-top: 10px
         }
 
         .file-chip {
@@ -38,7 +38,7 @@
             border: 1px solid #ddd;
             border-radius: 14px;
             background: #fff;
-            font-size: 14px;
+            font-size: 14px
         }
 
         .file-remove {
@@ -47,13 +47,24 @@
             cursor: pointer;
             font-size: 14px;
             line-height: 1;
-            color: #c00;
+            color: #c00
         }
 
         .hint {
             font-size: 13px;
             color: #666;
-            margin-top: 6px;
+            margin-top: 6px
+        }
+
+        .rush-row {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            margin: 8px 0 4px
+        }
+
+        .rush-label {
+            font-weight: 600
         }
     </style>
 </head>
@@ -157,16 +168,20 @@
             </select>
 
             <label>Upload Files (*)</label>
-
             <!-- Dropzone + multiple input -->
             <div id="dropzone" class="dropzone">
                 <strong>Drag & drop</strong> files here or <u>click to select</u>.
                 <div class="hint">You can add files from different folders. They will appear below.</div>
                 <input type="file" id="file" name="file" multiple style="display:none;" />
             </div>
-
             <!-- Selected files list -->
             <div id="filesList" class="files-list"></div>
+
+            <!-- Rush -->
+            <div class="rush-row">
+                <input type="checkbox" id="rush" name="rush" />
+                <label for="rush" class="rush-label">Rush (expedite this project)</label>
+            </div>
 
             <label for="notes">Additional Notes</label>
             <textarea id="notes" name="notes" rows="4"></textarea>
@@ -201,6 +216,8 @@
         <input name="notes" id="notesField" />
         <input name="fileName" id="fileNameField" />
         <input name="projectId" id="projectIdField" />
+        <!-- NEW: pass rush to the sheet -->
+        <input name="rush" id="rushField" />
     </form>
 
     <!-- Scripts -->
@@ -257,38 +274,31 @@
         const fileInput = document.getElementById("file");
         const filesListEl = document.getElementById("filesList");
 
-        // Persistent selection
         let selectedFiles = []; // array of File
 
         function filesAreSame(a, b) {
             return a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
         }
-
         function addFiles(files) {
             for (const f of files) {
-                // de-dup
                 if (!selectedFiles.some(sf => filesAreSame(sf, f))) {
                     selectedFiles.push(f);
                 }
             }
             renderFiles();
         }
-
         function removeFileAt(index) {
             selectedFiles.splice(index, 1);
             renderFiles();
         }
-
         function renderFiles() {
             filesListEl.innerHTML = "";
             if (!selectedFiles.length) return;
             selectedFiles.forEach((f, idx) => {
                 const chip = document.createElement("div");
                 chip.className = "file-chip";
-                chip.innerHTML = `
-          <span title="${f.name}">${f.name}</span>
-          <button type="button" class="file-remove" aria-label="Remove file">✕</button>
-        `;
+                chip.innerHTML = `<span title="${f.name}">${f.name}</span>
+                          <button type="button" class="file-remove" aria-label="Remove file">✕</button>`;
                 chip.querySelector(".file-remove").addEventListener("click", () => removeFileAt(idx));
                 filesListEl.appendChild(chip);
             });
@@ -298,22 +308,15 @@
         dropzone.addEventListener("click", () => fileInput.click());
         fileInput.addEventListener("change", (e) => {
             if (e.target.files?.length) addFiles(e.target.files);
-            // DO NOT clear selection; keep persistent
-            fileInput.value = ""; // allow re-selecting same file from different folder dialogs
+            fileInput.value = ""; // allow re-selecting same file
         });
 
         // Drag & drop
         ["dragenter", "dragover"].forEach(evt => {
-            dropzone.addEventListener(evt, (e) => {
-                e.preventDefault(); e.stopPropagation();
-                dropzone.classList.add("dragover");
-            });
+            dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add("dragover"); });
         });
         ["dragleave", "drop"].forEach(evt => {
-            dropzone.addEventListener(evt, (e) => {
-                e.preventDefault(); e.stopPropagation();
-                dropzone.classList.remove("dragover");
-            });
+            dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove("dragover"); });
         });
         dropzone.addEventListener("drop", (e) => {
             const dtFiles = e.dataTransfer?.files;
@@ -322,10 +325,9 @@
 
         // Helpers
         const form = document.getElementById("projectRequestForm");
-        const confirmationMsg = document.getElementById("confirmationMsg");
         const getSelectedValues = (sel) => Array.from(sel.selectedOptions).map(o => o.value);
 
-        // --- Project ID builder (uses FIRST file) ---
+        // Build Project ID (uses FIRST file)
         function buildProjectId({ sourceLang, targetLang, firstFileName, date = new Date() }) {
             const lettersOnly = (firstFileName || "").replace(/[^A-Za-z]/g, "").slice(0, 10);
             const MM = String(date.getMonth() + 1).padStart(2, "0");
@@ -345,6 +347,7 @@
             const sourceLangSelect = document.getElementById("sourceLang");
             const targetLangSelect = document.getElementById("targetLang");
             const notes = document.getElementById("notes").value;
+            const rush = document.getElementById("rush").checked;
 
             const sourceLang = getSelectedValues(sourceLangSelect);
             const targetLang = getSelectedValues(targetLangSelect);
@@ -355,12 +358,12 @@
             }
 
             try {
-                // User data
+                // User info
                 const userEmail = auth.currentUser?.email || "";
                 const fullName = clientFullName || auth.currentUser?.displayName || "";
                 const phone = ""; // optional
 
-                // Build projectId using the FIRST file
+                // Project ID from first file
                 const projectId = buildProjectId({
                     sourceLang,
                     targetLang,
@@ -368,7 +371,7 @@
                     date: new Date()
                 });
 
-                // 1) Upload ALL files under the project folder
+                // 1) Upload all source files
                 const uploadedNames = [];
                 await Promise.all(selectedFiles.map(async (file) => {
                     const storagePath = `projects/${projectId}/${Date.now()}_${file.name}`;
@@ -380,10 +383,11 @@
                 // 2) Save Firestore request
                 const docRef = await addDoc(collection(db, "projectRequests"), {
                     projectId,
+                    rush,                                  // <--- NEW
                     sourceLang: sourceLang.join(", "),
                     targetLang: targetLang.join(", "),
                     notes,
-                    files: uploadedNames,      // <-- multiple original filenames
+                    files: uploadedNames,
                     fullname: fullName,
                     email: userEmail,
                     phone: phone,
@@ -391,7 +395,6 @@
                     deliverables: [],
                     createdAt: serverTimestamp()
                 });
-
                 await updateDoc(docRef, { docId: docRef.id });
 
                 // 3) Send to Google Sheet (join filenames)
@@ -403,6 +406,7 @@
                 document.getElementById("notesField").value = notes;
                 document.getElementById("fileNameField").value = uploadedNames.join(", ");
                 document.getElementById("projectIdField").value = projectId;
+                document.getElementById("rushField").value = rush ? "Yes" : "No";  // <--- NEW
 
                 document.getElementById("spreadsheetForm").submit();
 

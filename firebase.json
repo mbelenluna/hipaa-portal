@@ -5,6 +5,10 @@
   "functions": [
     {
       "source": "functions",
+      "runtime": "nodejs22",
+      "region": "us-central1",
+      "serviceAccount": "492156326175-compute@developer.gserviceaccount.com",
+      "buildServiceAccount": "492156326175@cloudbuild.gserviceaccount.com",
       "codebase": "default",
       "ignore": [
         "node_modules",
