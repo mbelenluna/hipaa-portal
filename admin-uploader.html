@@ -41,6 +41,16 @@
             margin: 0 0 18px;
         }
 
+        tr.rush {
+            background: #fff1f2;
+            /* light red background */
+        }
+
+        tr.rush>td:first-child {
+            border-left: 4px solid #fda4af;
+            /* soft red border accent */
+        }
+
         /* Control bar */
         #controls {
             display: flex;
@@ -73,7 +83,7 @@
             cursor: pointer;
             transition: filter .15s;
             flex: 0 0 auto;
-            margin-top: 0!important;
+            margin-top: 0 !important;
         }
 
         .btn.primary {
@@ -346,7 +356,8 @@
                     notes: data.notes || "",
                     status: data.status || "Pending",
                     deliverables: Array.isArray(data.deliverables) ? data.deliverables : [],
-                    projectId: data.projectId || ""
+                    projectId: data.projectId || "",
+                    rush: !!data.rush
                 });
             });
 
@@ -369,6 +380,7 @@
 
             for (const r of filtered) {
                 const tr = document.createElement("tr");
+                if (r.rush) tr.classList.add("rush");
                 const dateText = r.createdAt ? r.createdAt.toLocaleString() : "N/A";
                 const langs = `${r.sourceLang} → ${r.targetLang}`;
                 const filesHtml = r.files.length

@@ -57,14 +57,28 @@
         }
 
         .rush-row {
-            display: flex;
+            display: grid;
+            grid-template-columns: 20px 1fr;
             align-items: center;
-            gap: .5rem;
-            margin: 8px 0 4px
+            column-gap: 10px;
+            margin: 12px 0 8px;
+        }
+
+        .rush-row input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin: 0;
         }
 
         .rush-label {
-            font-weight: 600
+            font-weight: 600;
+            line-height: 1.2;
+            margin: 0;
+        }
+
+        #requestsTable tbody tr.rush {
+            background: #fff1f2;
+            /* light red */
         }
     </style>
 </head>

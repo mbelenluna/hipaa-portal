@@ -201,6 +201,7 @@
                         <td>${el(data.notes || "—")}</td>
                         <td>${filesHtml}</td>
                     `;
+                    if (data.rush) tr.classList.add("rush");
                     tbody.appendChild(tr);
                 }
 
