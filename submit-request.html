@@ -182,16 +182,13 @@
             </select>
 
             <label>Upload Files (*)</label>
-            <!-- Dropzone + multiple input -->
             <div id="dropzone" class="dropzone">
                 <strong>Drag & drop</strong> files here or <u>click to select</u>.
                 <div class="hint">You can add files from different folders. They will appear below.</div>
                 <input type="file" id="file" name="file" multiple style="display:none;" />
             </div>
-            <!-- Selected files list -->
             <div id="filesList" class="files-list"></div>
 
-            <!-- Rush -->
             <div class="rush-row">
                 <input type="checkbox" id="rush" name="rush" />
                 <label for="rush" class="rush-label">Rush (expedite this project)</label>
@@ -217,7 +214,6 @@
         <button id="logoutBtn">Log out</button>
     </div>
 
-    <!-- Hidden IFrame + Form to Apps Script -->
     <iframe name="hiddenFrame" style="display:none;"></iframe>
 
     <form id="spreadsheetForm" method="POST" target="hiddenFrame" style="display:none;"
@@ -230,11 +226,9 @@
         <input name="notes" id="notesField" />
         <input name="fileName" id="fileNameField" />
         <input name="projectId" id="projectIdField" />
-        <!-- NEW: pass rush to the sheet -->
         <input name="rush" id="rushField" />
     </form>
 
-    <!-- Scripts -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
@@ -312,7 +306,7 @@
                 const chip = document.createElement("div");
                 chip.className = "file-chip";
                 chip.innerHTML = `<span title="${f.name}">${f.name}</span>
-                          <button type="button" class="file-remove" aria-label="Remove file">✕</button>`;
+                                 <button type="button" class="file-remove" aria-label="Remove file">✕</button>`;
                 chip.querySelector(".file-remove").addEventListener("click", () => removeFileAt(idx));
                 filesListEl.appendChild(chip);
             });
@@ -385,33 +379,42 @@
                     date: new Date()
                 });
 
-                // 1) Upload all source files
+                // 1) Create the Firestore document first to get its ID
+                const docRef = await addDoc(collection(db, "projectRequests"), {
+                    projectId,
+                    rush,
+                    sourceLang: sourceLang.join(", "),
+                    targetLang: targetLang.join(", "),
+                    notes,
+                    files: [], // Start with an empty array
+                    fullname: fullName,
+                    email: userEmail,
+                    phone: phone,
+                    status: "Uploading", // Use a temporary status
+                    deliverables: [],
+                    createdAt: serverTimestamp(),
+                    ownerUid: auth.currentUser.uid // Add the ownerUid field for security rules
+                });
+
+                // Update the document with its own ID right away
+                await updateDoc(docRef, { docId: docRef.id });
+
+                // 2) Upload all source files using the new docId
                 const uploadedNames = [];
                 await Promise.all(selectedFiles.map(async (file) => {
-                    const storagePath = `projects/${projectId}/${Date.now()}_${file.name}`;
+                    const storagePath = `projects/${docRef.id}/${Date.now()}_${file.name}`;
                     const fileRef = ref(storage, storagePath);
                     await uploadBytes(fileRef, file);
                     uploadedNames.push(file.name);
                 }));
 
-                // 2) Save Firestore request
-                const docRef = await addDoc(collection(db, "projectRequests"), {
-                    projectId,
-                    rush,                                  // <--- NEW
-                    sourceLang: sourceLang.join(", "),
-                    targetLang: targetLang.join(", "),
-                    notes,
+                // 3) Update the Firestore document with the file names and final status
+                await updateDoc(docRef, {
                     files: uploadedNames,
-                    fullname: fullName,
-                    email: userEmail,
-                    phone: phone,
-                    status: "Pending",
-                    deliverables: [],
-                    createdAt: serverTimestamp()
+                    status: "Pending"
                 });
-                await updateDoc(docRef, { docId: docRef.id });
 
-                // 3) Send to Google Sheet (join filenames)
+                // 4) Send to Google Sheet
                 document.getElementById("fullnameField").value = fullName;
                 document.getElementById("emailField").value = userEmail;
                 document.getElementById("phoneField").value = phone;
@@ -420,12 +423,17 @@
                 document.getElementById("notesField").value = notes;
                 document.getElementById("fileNameField").value = uploadedNames.join(", ");
                 document.getElementById("projectIdField").value = projectId;
-                document.getElementById("rushField").value = rush ? "Yes" : "No";  // <--- NEW
+                document.getElementById("rushField").value = rush ? "Yes" : "No";
 
                 document.getElementById("spreadsheetForm").submit();
 
-                // 4) Redirect to dashboard
-                window.location.href = "dashboard.html";
+                // 5) Show confirmation message and redirect
+                document.getElementById("confirmationMsg").style.display = "block";
+                form.style.display = "none";
+                setTimeout(() => {
+                    window.location.href = "dashboard.html";
+                }, 3000);
+
             } catch (error) {
                 alert("⚠️ Error: " + error.message);
                 console.error(error);
