@@ -281,9 +281,10 @@
             }[s]));
         }
 
+        // CORRECTED: `getLangPair` to handle both strings and arrays
         function getLangPair(data) {
-            const sourceLang = data?.sourceLang?.join(", ") || data?.sourceLang || "—";
-            const targetLang = data?.targetLang?.join(", ") || data?.targetLang || "—";
+            const sourceLang = Array.isArray(data?.sourceLang) ? data.sourceLang.join(", ") : data?.sourceLang || "—";
+            const targetLang = Array.isArray(data?.targetLang) ? data.targetLang.join(", ") : data?.targetLang || "—";
             return `${sourceLang} → ${targetLang}`;
         }
 
