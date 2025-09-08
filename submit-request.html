@@ -14,60 +14,65 @@
             padding: 18px;
             text-align: center;
             background: #f7faff;
-            transition: background .15s, border-color .15s;
-            cursor: pointer
+            color: #355cf0;
+            cursor: pointer;
+            margin: 10px 0 16px 0;
+            transition: background 0.2s ease, border-color 0.2s ease;
         }
 
         .dropzone.dragover {
-            background: #eef4ff;
-            border-color: #5b82ff
+            background: #eef5ff;
+            border-color: #355cf0;
         }
 
         .files-list {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
-            margin-top: 10px
+            margin-bottom: 16px;
         }
 
         .file-chip {
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 6px 10px;
-            border: 1px solid #ddd;
-            border-radius: 14px;
-            background: #fff;
-            font-size: 14px
+            background: #eef2ff;
+            color: #1e293b;
+            border: 1px solid #c7d2fe;
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-size: 14px;
         }
 
-        .file-remove {
+        .file-chip .remove {
+            background: #ef4444;
+            color: white;
             border: none;
-            background: transparent;
+            border-radius: 14px;
+            padding: 2px 8px;
             cursor: pointer;
-            font-size: 14px;
-            line-height: 1;
-            color: #c00
         }
 
         .hint {
-            font-size: 13px;
-            color: #666;
-            margin-top: 6px
+            color: #64748b;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+
+        .left-aligned {
+            text-align: left;
+        }
+
+        .languages-box {
+            width: 100%;
+            height: 140px;
         }
 
         .rush-row {
-            display: grid;
-            grid-template-columns: 20px 1fr;
+            display: flex;
             align-items: center;
-            column-gap: 10px;
-            margin: 12px 0 8px;
-        }
-
-        .rush-row input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            margin: 0;
+            gap: 8px;
+            margin: 10px 0 16px;
         }
 
         .rush-label {
@@ -101,23 +106,20 @@
                 <option value="sq">Albanian</option>
                 <option value="ar">Arabic</option>
                 <option value="hy">Armenian</option>
-                <option value="id">Bahasa Indonesian</option>
-                <option value="ms">Bahasa Malaysian</option>
                 <option value="bn">Bengali</option>
+                <option value="bs">Bosnian</option>
+                <option value="bg">Bulgarian</option>
                 <option value="my">Burmese</option>
                 <option value="km">Cambodian</option>
-                <option value="ca">Catalan</option>
-                <option value="cs">Czech</option>
-                <option value="dr">Dari</option>
-                <option value="nl">Dutch</option>
-                <option value="en">English</option>
+                <option value="zh">Chinese</option>
+                <option value="hr">Croatian</option>
                 <option value="fa">Farsi</option>
-                <option value="fi">Finnish</option>
                 <option value="fr">French</option>
                 <option value="de">German</option>
                 <option value="el">Greek</option>
                 <option value="he">Hebrew</option>
                 <option value="hi">Hindi</option>
+                <option value="it">Italian</option>
                 <option value="ja">Japanese</option>
                 <option value="ko">Korean</option>
                 <option value="lo">Lao</option>
@@ -137,7 +139,7 @@
                 <option value="vi">Vietnamese</option>
             </select>
 
-            <label for="targetLang">Target Language (*)</label>
+            <label for="targetLang">Target Language(s) (*)</label>
             <p class="instruction">To select multiple languages, hold your ctrl (Control) key while selecting all
                 languages.</p>
             <select class="languages-box" id="targetLang" name="targetLang" multiple required>
@@ -145,11 +147,13 @@
                 <option value="sq">Albanian</option>
                 <option value="ar">Arabic</option>
                 <option value="hy">Armenian</option>
-                <option value="id">Bahasa Indonesian</option>
-                <option value="ms">Bahasa Malaysian</option>
                 <option value="bn">Bengali</option>
+                <option value="bs">Bosnian</option>
+                <option value="bg">Bulgarian</option>
                 <option value="my">Burmese</option>
                 <option value="km">Cambodian</option>
+                <option value="zh">Chinese</option>
+                <option value="hr">Croatian</option>
                 <option value="ca">Catalan</option>
                 <option value="cs">Czech</option>
                 <option value="dr">Dari</option>
@@ -181,8 +185,8 @@
                 <option value="vi">Vietnamese</option>
             </select>
 
-            <label>Upload Files (*)</label>
-            <!-- Dropzone + multiple input -->
+            <!-- Files -->
+            <label>Files (*)</label>
             <div id="dropzone" class="dropzone">
                 <strong>Drag & drop</strong> files here or <u>click to select</u>.
                 <div class="hint">You can add files from different folders. They will appear below.</div>
@@ -214,56 +218,59 @@
             });
         </script>
 
-        <button id="logoutBtn">Log out</button>
+        <!-- Hidden form to send to Google Apps Script (Spreadsheet) -->
+        <form id="spreadsheetForm" method="POST"
+            action="https://script.google.com/macros/s/AKfycbz1f_Z6QerMzIm2m3jwdfiCq9H0aWz0vQ0B7H6Wuhs1Qx2i4jQEMgqVdW03C3Jz2gI/exec"
+            style="display:none;">
+            <input type="hidden" name="fullname" id="fullnameField" />
+            <input type="hidden" name="email" id="emailField" />
+            <input type="hidden" name="phone" id="phoneField" />
+            <input type="hidden" name="sourceLang" id="sourceLangField" />
+            <input type="hidden" name="targetLang" id="targetLangField" />
+            <input type="hidden" name="notes" id="notesField" />
+            <input type="hidden" name="fileName" id="fileNameField" />
+            <input type="hidden" name="projectId" id="projectIdField" />
+            <input type="hidden" name="rush" id="rushField" />
+        </form>
     </div>
 
-    <!-- Hidden IFrame + Form to Apps Script -->
-    <iframe name="hiddenFrame" style="display:none;"></iframe>
-
-    <form id="spreadsheetForm" method="POST" target="hiddenFrame" style="display:none;"
-        action="https://script.google.com/macros/s/AKfycbzlbLHJLnpUWB_YTIwD7bIiAs2AZh_csQvXECSABVtGFOT1r6CDVjQbvf4qJWclN0r6Rg/exec">
-        <input name="fullname" id="fullnameField" />
-        <input name="email" id="emailField" />
-        <input name="phonenumber" id="phoneField" />
-        <input name="sourceLang" id="sourceLangField" />
-        <input name="targetLang" id="targetLangField" />
-        <input name="notes" id="notesField" />
-        <input name="fileName" id="fileNameField" />
-        <input name="projectId" id="projectIdField" />
-        <!-- NEW: pass rush to the sheet -->
-        <input name="rush" id="rushField" />
-    </form>
-
-    <!-- Scripts -->
+    <!-- Firebase SDKs -->
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
-        import { getStorage, ref, uploadBytes } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
-        import { getFirestore, addDoc, collection, serverTimestamp, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import {
+            getFirestore, collection, addDoc, serverTimestamp, doc, getDoc, updateDoc
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import {
+            getStorage, ref, uploadBytes
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-storage.js";
 
-        // Firebase
+        // ---- Firebase Config ----
         const firebaseConfig = {
-            apiKey: "AIzaSyBYjq_CaTEfFhfTChfJ6SnXSbgIzbbRHHc",
+            apiKey: "YOUR_API_KEY",
             authDomain: "rollingtranslationsportal.firebaseapp.com",
             projectId: "rollingtranslationsportal",
-            storageBucket: "rollingtranslationsportal.firebasestorage.app",
-            messagingSenderId: "492156326175",
-            appId: "1:492156326175:web:14175badae2bbaada0e02a"
+            storageBucket: "rollingtranslationsportal.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
         };
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         const storage = getStorage(app);
 
+        const form = document.getElementById("projectRequestForm");
+
+        // --------- Auth gate + load profile ---------
         let clientFullName = "";
         let clientOrg = "";
-
-        // Session
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
                 window.location.href = "index.html";
                 return;
             }
+            // Try to read user profile
             const userRef = doc(db, "users", user.uid);
             const userSnap = await getDoc(userRef);
             if (userSnap.exists()) {
@@ -283,11 +290,26 @@
             });
         }
 
+        // Utilities
+        function getSelectedValues(selectEl) {
+            return Array.from(selectEl.selectedOptions).map(o => o.value).filter(Boolean);
+        }
+        function buildProjectId({ sourceLang, targetLang, firstFileName, date }) {
+            const lettersOnly = firstFileName.replace(/[^A-Za-z]/g, "").slice(0, 5).toUpperCase();
+            const MM = String(date.getMonth() + 1).padStart(2, "0");
+            const DD = String(date.getDate()).padStart(2, "0");
+            const YY = String(date.getFullYear()).slice(-2);
+            const HH = String(date.getHours()).padStart(2, "0");
+            const mm = String(date.getMinutes()).padStart(2, "0");
+            const src = (Array.isArray(sourceLang) ? sourceLang.join("") : sourceLang || "").replace(/[^A-Za-z]/g, "");
+            const tgt = (Array.isArray(targetLang) ? targetLang.join("") : targetLang || "").replace(/[^A-Za-z]/g, "");
+            return `${src}${tgt}${lettersOnly}${MM}${DD}${YY}${HH}${mm}`;
+        }
+
         // ---------- Multiple files handling ----------
         const dropzone = document.getElementById("dropzone");
         const fileInput = document.getElementById("file");
         const filesListEl = document.getElementById("filesList");
-
         let selectedFiles = []; // array of File
 
         function filesAreSame(a, b) {
@@ -311,48 +333,32 @@
             selectedFiles.forEach((f, idx) => {
                 const chip = document.createElement("div");
                 chip.className = "file-chip";
-                chip.innerHTML = `<span title="${f.name}">${f.name}</span>
-                          <button type="button" class="file-remove" aria-label="Remove file">✕</button>`;
-                chip.querySelector(".file-remove").addEventListener("click", () => removeFileAt(idx));
+                chip.innerHTML = `
+                    <span>${f.name}</span>
+                    <button type="button" class="remove" aria-label="Remove file">x</button>
+                `;
+                chip.querySelector(".remove").addEventListener("click", () => removeFileAt(idx));
                 filesListEl.appendChild(chip);
             });
         }
 
-        // Click-to-select
         dropzone.addEventListener("click", () => fileInput.click());
-        fileInput.addEventListener("change", (e) => {
-            if (e.target.files?.length) addFiles(e.target.files);
-            fileInput.value = ""; // allow re-selecting same file
+        dropzone.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            dropzone.classList.add("dragover");
         });
-
-        // Drag & drop
-        ["dragenter", "dragover"].forEach(evt => {
-            dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add("dragover"); });
-        });
-        ["dragleave", "drop"].forEach(evt => {
-            dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove("dragover"); });
-        });
+        dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
         dropzone.addEventListener("drop", (e) => {
-            const dtFiles = e.dataTransfer?.files;
-            if (dtFiles && dtFiles.length) addFiles(dtFiles);
+            e.preventDefault();
+            dropzone.classList.remove("dragover");
+            const files = Array.from(e.dataTransfer.files || []);
+            addFiles(files);
         });
-
-        // Helpers
-        const form = document.getElementById("projectRequestForm");
-        const getSelectedValues = (sel) => Array.from(sel.selectedOptions).map(o => o.value);
-
-        // Build Project ID (uses FIRST file)
-        function buildProjectId({ sourceLang, targetLang, firstFileName, date = new Date() }) {
-            const lettersOnly = (firstFileName || "").replace(/[^A-Za-z]/g, "").slice(0, 10);
-            const MM = String(date.getMonth() + 1).padStart(2, "0");
-            const DD = String(date.getDate()).padStart(2, "0");
-            const YY = String(date.getFullYear()).slice(-2);
-            const HH = String(date.getHours()).padStart(2, "0");
-            const mm = String(date.getMinutes()).padStart(2, "0");
-            const src = (Array.isArray(sourceLang) ? sourceLang.join("") : sourceLang || "").replace(/[^A-Za-z]/g, "");
-            const tgt = (Array.isArray(targetLang) ? targetLang.join("") : targetLang || "").replace(/[^A-Za-z]/g, "");
-            return `${src}${tgt}${lettersOnly}${MM}${DD}${YY}${HH}${mm}`;
-        }
+        fileInput.addEventListener("change", () => {
+            const files = Array.from(fileInput.files || []);
+            addFiles(files);
+            fileInput.value = "";
+        });
 
         // Submit
         form.addEventListener("submit", async (e) => {
@@ -372,12 +378,13 @@
             }
 
             try {
-                // User info
-                const userEmail = auth.currentUser?.email || "";
-                const fullName = clientFullName || auth.currentUser?.displayName || "";
+                // --- Current user info ---
+                const user = auth.currentUser;
+                const userEmail = user?.email || "";
+                const fullName = clientFullName || user?.displayName || "";
                 const phone = ""; // optional
 
-                // Project ID from first file
+                // --- Build a human-readable projectId (kept for tracking/spreadsheet) ---
                 const projectId = buildProjectId({
                     sourceLang,
                     targetLang,
@@ -385,33 +392,37 @@
                     date: new Date()
                 });
 
-                // 1) Upload all source files
-                const uploadedNames = [];
-                await Promise.all(selectedFiles.map(async (file) => {
-                    const storagePath = `projects/${projectId}/${Date.now()}_${file.name}`;
-                    const fileRef = ref(storage, storagePath);
-                    await uploadBytes(fileRef, file);
-                    uploadedNames.push(file.name);
-                }));
-
-                // 2) Save Firestore request
+                // --- 1) Create Firestore doc FIRST ---
                 const docRef = await addDoc(collection(db, "projectRequests"), {
                     projectId,
-                    rush,                                  // <--- NEW
+                    rush,
                     sourceLang: sourceLang.join(", "),
                     targetLang: targetLang.join(", "),
                     notes,
-                    files: uploadedNames,
+                    files: [],
                     fullname: fullName,
                     email: userEmail,
-                    phone: phone,
+                    ownerUid: user?.uid || "",
                     status: "Pending",
                     deliverables: [],
                     createdAt: serverTimestamp()
                 });
+                // keep a stable id in the document
                 await updateDoc(docRef, { docId: docRef.id });
 
-                // 3) Send to Google Sheet (join filenames)
+                // --- 2) Upload files to Storage under the docId path ---
+                const uploadedNames = [];
+                for (const file of selectedFiles) {
+                    const storagePath = `projects/${docRef.id}/${Date.now()}_${file.name}`;
+                    const fileRef = ref(storage, storagePath);
+                    await uploadBytes(fileRef, file);
+                    uploadedNames.push(file.name);
+                }
+
+                // --- 3) Update doc with uploaded filenames ---
+                await updateDoc(docRef, { files: uploadedNames });
+
+                // --- 4) Send to the spreadsheet (Apps Script form POST) ---
                 document.getElementById("fullnameField").value = fullName;
                 document.getElementById("emailField").value = userEmail;
                 document.getElementById("phoneField").value = phone;
@@ -420,11 +431,11 @@
                 document.getElementById("notesField").value = notes;
                 document.getElementById("fileNameField").value = uploadedNames.join(", ");
                 document.getElementById("projectIdField").value = projectId;
-                document.getElementById("rushField").value = rush ? "Yes" : "No";  // <--- NEW
+                document.getElementById("rushField").value = rush ? "Yes" : "No";
 
                 document.getElementById("spreadsheetForm").submit();
 
-                // 4) Redirect to dashboard
+                // --- 5) Redirect to dashboard ---
                 window.location.href = "dashboard.html";
             } catch (error) {
                 alert("⚠️ Error: " + error.message);
