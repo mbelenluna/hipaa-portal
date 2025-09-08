@@ -2,239 +2,157 @@
 // Node.js 22 + Firebase Functions (Gen 2)
 
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
-const functions = require("firebase-functions");
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
+const { defineString } = require("firebase-functions/params");
 
-// ====== Opciones de despliegue (coinciden con tus logs) ======
-const RUNTIME_OPTS = {
-    region: "us-central1",        // Cloud Functions region
-    eventarcRegion: "nam5",       // Firestore (default database) usa nam5
-    retry: false,                 // No reintentar (evita email duplicados)
-};
+// Define email credentials as parameters
+const MAIL_USER = defineString("EMAIL_USER");
+const MAIL_PASS = defineString("EMAIL_PASS");
+const ADMIN_EMAIL = defineString("ADMIN_EMAIL");
 
-// ====== Inicializar Admin SDK ======
+// Initialize Admin SDK
 try {
     admin.initializeApp();
 } catch (e) {
     console.warn("Admin already initialized (ok).");
 }
 
-// ====== Utilidades ======
-function safe(obj, path, fallback = "") {
-    return path.split(".").reduce((acc, k) => (acc && acc[k] !== undefined ? acc[k] : undefined), obj) ?? fallback;
-}
-
-function loadEmailCreds() {
-    // 1) Firebase Functions config
-    let cfg = {};
-    try {
-        cfg = functions.config();
-    } catch {
-        cfg = {};
-    }
-
-    // Tomamos en este orden: ENV → email.* → gmail.*
-    const user =
-        process.env.EMAIL_USER ||
-        safe(cfg, "email.user") ||
-        safe(cfg, "gmail.email") ||
-        "";
-
-    const pass =
-        process.env.EMAIL_PASS ||
-        safe(cfg, "email.pass") ||
-        safe(cfg, "gmail.password") ||
-        "";
-
-    if (!user || !pass) {
-        console.warn(
-            'WARNING: Email credentials not set. ' +
-            'Set with: firebase functions:config:set email.user="..." email.pass="..." ' +
-            'or provide EMAIL_USER / EMAIL_PASS env vars. ' +
-            '(Also supported: gmail.email / gmail.password)'
-        );
-    } else {
-        console.log(`Mail config loaded for user: ${user}`);
-    }
-
-    return { user, pass };
-}
-
-const { user: MAIL_USER, pass: MAIL_PASS } = loadEmailCreds();
-
-// Crear el transporter una vez (evita overhead)
+// Global transporter for sending emails
 const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-        user: MAIL_USER,
-        pass: MAIL_PASS,
+        user: MAIL_USER.value(),
+        pass: MAIL_PASS.value(),
     },
 });
 
-// Formatea nombres de archivos sin URL (solo nombres)
-function niceFiles(filesMaybe) {
-    if (!filesMaybe) return "—";
-    const files = Array.isArray(filesMaybe) ? filesMaybe : [filesMaybe];
-    return files
-        .map((f) => {
-            if (!f) return "";
-            if (typeof f === "string") {
-                // extraer nombre (último segmento)
-                try {
-                    const url = new URL(f);
-                    const pathname = url.pathname || f;
-                    const last = pathname.split("/").pop();
-                    return last || f;
-                } catch {
-                    // no es URL, devolver tal cual
-                    return f.split("/").pop();
-                }
-            }
-            // objetos {name, url} o similar
-            return f.name || f.fileName || f.path?.split("/").pop() || "file";
-        })
-        .filter(Boolean)
-        .join(", ");
+// Helper function to get language pairs
+function getLangPair(data) {
+    const sourceLang = data?.sourceLang?.join?.(", ") || data?.sourceLang || "—";
+    const targetLang = data?.targetLang?.join?.(", ") || data?.targetLang || "—";
+    return `${sourceLang} → ${targetLang}`;
 }
 
-function yesNo(v) {
-    return v ? "YES" : "NO";
+// Helper function to format file names
+function niceFiles(fileData) {
+    if (Array.isArray(fileData)) {
+        return fileData.map((f) => f.name || f).join(", ");
+    }
+    return fileData || "—";
 }
 
-// ====== A) Al CREAR proyecto: notificación interna + cliente ======
-exports.newProject_Notify_v2 = onDocumentCreated(
-    { ...RUNTIME_OPTS, document: "projectRequests/{projectId}" },
-    async (event) => {
-        try {
-            const snap = event.data; // QueryDocumentSnapshot
-            if (!snap) {
-                console.warn("newProject_Notify_v2: no snapshot");
-                return;
-            }
-            const data = snap.data() || {};
-            const docId = snap.id;
+// ========== A) On new project: send notification to client and admin ==========
+// ========== A) On new project: send notification to client and admin ==========
+exports.newProject_Notify_v2 = onDocumentCreated("projectRequests/{projectId}", async (event) => {
+    try {
+        const after = event?.data?.data?.() || {};
+        const projectId = after.projectId || event.params.projectId || "—";
+        const isRush = after.rush ? "Yes" : "No"; // <-- NEW: Get rush status
 
-            const projectId = data.projectId || docId;
-            const fullname = data.fullname || "";
-            const email = data.email || "";
-            const sourceLang = data.sourceLang || "";
-            const targetLang = data.targetLang || "";
-            const rush = !!data.rush;
-            const notes = data.notes || "";
-            const filesList = niceFiles(data.files || data.file);
+        // Early exit: no client email
+        if (!after.email) {
+            console.log("newProject_Notify_v2: no client email, skipping.");
+            return;
+        }
 
-            // ---- Email interno (sin adjuntos) ----
-            const internalMail = {
-                from: `Rolling Translations <${MAIL_USER || "no-reply@rolling-translations.com"}>`,
-                to: "info@rolling-translations.com",
-                subject: `[New Request] ${projectId} ${rush ? " (RUSH)" : ""}`,
-                text: `
-New translation request received.
+        const mailToClient = {
+            from: `"Rolling Translations" <${MAIL_USER.value()}>`,
+            to: after.email,
+            subject: `🎉 Your project request has been received! (ID: ${projectId})`,
+            text: `
+Hello ${after.fullname || "there"},
 
-Project ID: ${projectId}
-Client: ${fullname} <${email}>
-Source → Target: ${sourceLang} → ${targetLang}
-Rush: ${yesNo(rush)}
-Files: ${filesList}
-Notes: ${notes || "—"}
+Thank you for submitting your project request. 
 
-Open Admin to review and assign.
-`.trim(),
-            };
+Project details:
+- Project ID: ${projectId}
+- Languages: ${getLangPair(after)}
+- File(s): ${niceFiles(after.files || after.file)}
+- Notes: ${after.notes || "—"}
+- Rush: ${isRush}
 
-            // ---- Email de confirmación al cliente ----
-            let clientMail = null;
-            if (email) {
-                clientMail = {
-                    from: `Rolling Translations <${MAIL_USER || "no-reply@rolling-translations.com"}>`,
-                    to: email,
-                    subject: "We received your translation request",
-                    text: `
-Hi ${fullname || "there"},
-
-We successfully received your project.
-
-Project ID: ${projectId}
-Languages: ${sourceLang} → ${targetLang}
-Rush: ${yesNo(rush)}
-File(s): ${filesList}
-
-You'll receive an email each time the project status changes.
-For more details, you can visit your dashboard.
+You can view the status of your project in your client dashboard.
 
 Best regards,
 Rolling Translations
-`.trim(),
-                };
-            }
+            `.trim(),
+        };
 
-            // Enviar
-            await transporter.sendMail(internalMail);
-            if (clientMail) await transporter.sendMail(clientMail);
+        const mailToAdmin = {
+            from: `"Rolling Translations" <${MAIL_USER.value()}>`,
+            to: ADMIN_EMAIL.value(),
+            subject: `🔔 New project request received! (ID: ${projectId})`,
+            text: `
+Hello,
 
-            console.log("✅ newProject_Notify_v2: emails sent");
-        } catch (err) {
-            // No throw para no reintentar (retry: false)
-            console.error("❌ newProject_Notify_v2 error:", err?.message || err);
-        }
+A new project request has been submitted to the client portal.
+
+Client: ${after.fullname || "—"}
+Email: ${after.email}
+Phone: ${after.phone || "—"}
+
+Project details:
+- Project ID: ${projectId}
+- Languages: ${getLangPair(after)}
+- File(s): ${niceFiles(after.files || after.file)}
+- Notes: ${after.notes || "—"}
+- Rush: ${isRush}
+
+Please log in to your dashboard to review and process this request.
+            `.trim(),
+        };
+
+        await transporter.sendMail(mailToClient);
+        console.log("✅ newProject_Notify_v2: email to client sent.");
+
+        await transporter.sendMail(mailToAdmin);
+        console.log("✅ newProject_Notify_v2: email to admin sent.");
+    } catch (err) {
+        console.error("❌ newProject_Notify_v2 error:", err?.message || err);
     }
-);
+});
 
-// ====== B) Al ACTUALIZAR proyecto: notificación de cambio de estado ======
-exports.statusChange_Notify_v2 = onDocumentUpdated(
-    { ...RUNTIME_OPTS, document: "projectRequests/{projectId}" },
-    async (event) => {
-        try {
-            const before = event.data?.before?.data() || {};
-            const after = event.data?.after?.data() || {};
+// ========== B) On project status update: send notification to client ==========
+exports.statusChange_Notify_v2 = onDocumentUpdated("projectRequests/{projectId}", async (event) => {
+    try {
+        const before = event?.data?.before?.data?.() || {};
+        const after = event?.data?.after?.data?.() || {};
+        const projectId = after.projectId || event.params.projectId || "—";
 
-            // Enviar solo si el status cambió
-            const prevStatus = before.status || "";
-            const nextStatus = after.status || "";
-            if (prevStatus === nextStatus) {
-                console.log("statusChange_Notify_v2: status did not change, skipping.");
-                return;
-            }
+        // Early exit: no client email or status is unchanged
+        if (!after.email) {
+            console.log("statusChange_Notify_v2: no client email, skipping.");
+            return;
+        }
+        if (before.status === after.status) {
+            console.log("statusChange_Notify_v2: status unchanged, skipping.");
+            return;
+        }
 
-            const email = after.email || "";
-            if (!email) {
-                console.warn("statusChange_Notify_v2: missing client email, skipping.");
-                return;
-            }
+        const mail = {
+            from: `"Rolling Translations" <${MAIL_USER.value()}>`,
+            to: after.email,
+            subject: `📣 Status update for your project ${projectId}`,
+            text: `
+Hello ${after.fullname || "there"},
 
-            const docId = event.data?.after?.id || "";
-            const projectId = after.projectId || docId;
-            const fullname = after.fullname || "";
-            const sourceLang = after.sourceLang || "";
-            const targetLang = after.targetLang || "";
-            const filesList = niceFiles(after.files || after.file);
+The status of your project has been updated.
 
-            const mail = {
-                from: `Rolling Translations <${MAIL_USER || "no-reply@rolling-translations.com"}>`,
-                to: email,
-                subject: "Your project status has changed",
-                text: `
-Hello ${fullname || "there"},
-
-The status of your project has changed.
-
-Project ID: ${projectId}
-Languages: ${sourceLang} → ${targetLang}
-File(s): ${filesList}
-New status: ${nextStatus || "—"}
-
-For more information, please visit your dashboard.
+Project details:
+- Project ID: ${projectId}
+- Languages: ${getLangPair(after)}
+- File(s): ${niceFiles(after.files || after.file)}
+- New status: ${after.status || "—"}
 
 Best regards,
 Rolling Translations
-`.trim(),
-            };
+            `.trim(),
+        };
 
-            await transporter.sendMail(mail);
-            console.log("✅ statusChange_Notify_v2: email sent");
-        } catch (err) {
-            console.error("❌ statusChange_Notify_v2 error:", err?.message || err);
-        }
+        await transporter.sendMail(mail);
+        console.log("✅ statusChange_Notify_v2: email sent.");
+    } catch (err) {
+        console.error("❌ statusChange_Notify_v2 error:", err?.message || err);
     }
-);
+});
