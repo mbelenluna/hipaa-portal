@@ -221,7 +221,7 @@
         <!-- Hidden form to send to Google Apps Script (Spreadsheet) -->
         <form id="spreadsheetForm" method="POST"
             action="https://script.google.com/macros/s/AKfycbz1f_Z6QerMzIm2m3jwdfiCq9H0aWz0vQ0B7H6Wuhs1Qx2i4jQEMgqVdW03C3Jz2gI/exec"
-            style="display:none;">
+            target="_blank" style="display:none;">
             <input type="hidden" name="fullname" id="fullnameField" />
             <input type="hidden" name="email" id="emailField" />
             <input type="hidden" name="phone" id="phoneField" />
@@ -267,7 +267,10 @@
         let clientOrg = "";
         onAuthStateChanged(auth, async (user) => {
             if (!user) {
-                window.location.href = "index.html";
+                // Grace period for auth hydration to avoid false redirect
+                setTimeout(() => {
+                    if (!auth.currentUser) window.location.href = "index.html";
+                }, 300);
                 return;
             }
             // Try to read user profile
