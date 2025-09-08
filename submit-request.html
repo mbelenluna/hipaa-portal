@@ -199,10 +199,15 @@
 
             <p class="left-aligned">(*) Required fields.</p>
 
-            <button type="submit">Send Request</button>
+            <button type="submit" id="submitBtn">Send Request</button>
         </form>
 
-        <p id="confirmationMsg" style="display:none; color:green;">✅ Project request sent!</p>
+        <p id="loadingMsg" style="display:none; text-align:center;">
+            ⏳ Please wait, your request is being processed...
+        </p>
+        <p id="confirmationMsg" style="display:none; text-align:center; color:green; font-weight:bold;">
+            ✅ Project request sent! You will be redirected shortly.
+        </p>
 
         <button type="button" id="backToDashboardBtn">Back to Dashboard</button>
         <script>
@@ -333,6 +338,9 @@
 
         // Helpers
         const form = document.getElementById("projectRequestForm");
+        const submitBtn = document.getElementById("submitBtn");
+        const loadingMsg = document.getElementById("loadingMsg");
+        const confirmationMsg = document.getElementById("confirmationMsg");
         const getSelectedValues = (sel) => Array.from(sel.selectedOptions).map(o => o.value);
 
         // Build Project ID (uses FIRST file)
@@ -364,6 +372,11 @@
                 alert("Please attach at least one file.");
                 return;
             }
+
+            // Show loading state
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Sending...";
+            loadingMsg.style.display = "block";
 
             try {
                 // User info
@@ -428,13 +441,20 @@
                 document.getElementById("spreadsheetForm").submit();
 
                 // 5) Show confirmation message and redirect
-                document.getElementById("confirmationMsg").style.display = "block";
+                loadingMsg.style.display = "none";
+                confirmationMsg.style.display = "block";
                 form.style.display = "none";
+
+                // Wait a moment before redirecting
                 setTimeout(() => {
                     window.location.href = "dashboard.html";
                 }, 3000);
 
             } catch (error) {
+                // Handle errors
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Send Request";
+                loadingMsg.style.display = "none";
                 alert("⚠️ Error: " + error.message);
                 console.error(error);
             }
