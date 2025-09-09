@@ -371,7 +371,7 @@ setLogLevel('debug');
 
             const sourceLang = getSelectedValues(sourceLangSelect);
             const targetLang = getSelectedValues(targetLangSelect);
-            console.log('Uploading to:', storagePath);
+            
 
 
             if (!selectedFiles.length) {
@@ -422,6 +422,7 @@ setLogLevel('debug');
                 const uploadedNames = [];
                 await Promise.all(selectedFiles.map(async (file) => {
                     const storagePath = `projects/${docRef.id}/${Date.now()}_${file.name}`;
+                    console.log('Uploading to:', storagePath);
                     const fileRef = ref(storage, storagePath);
                     await uploadBytes(fileRef, file);
                     uploadedNames.push(file.name);
