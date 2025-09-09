@@ -78,7 +78,6 @@
 
         #requestsTable tbody tr.rush {
             background: #fff1f2;
-            /* light red */
         }
     </style>
 </head>
@@ -202,19 +201,13 @@
             <button type="submit" id="submitBtn">Send Request</button>
         </form>
 
-        <p id="loadingMsg" style="display:none; text-align:center;">
-            ⏳ Please wait, your request is being processed...
+        <p id="loadingMsg" style="display:none; text-align:center;">⏳ Please wait, your request is being processed...
         </p>
-        <p id="confirmationMsg" style="display:none; text-align:center; color:green; font-weight:bold;">
-            ✅ Project request sent! You will be redirected shortly.
-        </p>
+        <p id="confirmationMsg" style="display:none; text-align:center; color:green; font-weight:bold;">✅ Project
+            request sent! You will be redirected shortly.</p>
 
         <button type="button" id="backToDashboardBtn">Back to Dashboard</button>
-        <script>
-            document.getElementById('backToDashboardBtn').addEventListener('click', () => {
-                window.location.href = 'dashboard.html';
-            });
-        </script>
+        <script>document.getElementById('backToDashboardBtn').addEventListener('click', () => { window.location.href = 'dashboard.html'; });</script>
 
         <button id="logoutBtn">Log out</button>
     </div>
@@ -248,10 +241,7 @@
         import { initializeApp, setLogLevel as setCoreLogLevel } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
         import { getStorage, ref, uploadBytes } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
-        import {
-            getFirestore, addDoc, collection, serverTimestamp,
-            doc, getDoc, updateDoc, setDoc, setLogLevel as setFirestoreLogLevel
-        } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+        import { getFirestore, addDoc, collection, serverTimestamp, doc, getDoc, updateDoc, setDoc, setLogLevel as setFirestoreLogLevel } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 
         // ---- Debug controls ----
         const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
@@ -275,7 +265,7 @@
         console.log('Origin:', location.origin);
         console.log('Project:', firebaseConfig.projectId);
         console.log('Auth domain:', firebaseConfig.authDomain);
-        console.log('Storage bucket:', firebaseConfig.storageBucket);
+        console.log('Storage bucket (config):', firebaseConfig.storageBucket);
         console.groupEnd();
 
         const app = initializeApp(firebaseConfig);
@@ -285,6 +275,45 @@
 
         let clientFullName = "";
         let clientOrg = "";
+
+        // --------------------------
+        // Helpers
+        // --------------------------
+        const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+        async function ensureOwnershipVisible(docRef, uid, maxTries = 6, delay = 250) {
+            // Ensures the Storage rule's get() sees ownerUid for this doc
+            for (let i = 0; i < maxTries; i++) {
+                try {
+                    const snap = await getDoc(docRef);
+                    const ok = snap.exists() && snap.data()?.ownerUid === uid;
+                    console.log(`🔎 ownership check [${i + 1}/${maxTries}]:`, { exists: snap.exists(), ownerUid: snap.data()?.ownerUid, expected: uid, ok });
+                    if (ok) return true;
+                } catch (e) {
+                    console.warn('ownership check error:', e);
+                }
+                await sleep(delay);
+            }
+            return false;
+        }
+
+        async function uploadWithRetry(fileRef, file, attempts = 3) {
+            let lastErr;
+            for (let i = 1; i <= attempts; i++) {
+                try {
+                    const t0 = performance.now();
+                    const res = await uploadBytes(fileRef, file);
+                    console.log(`Upload OK (attempt ${i}):`, { ms: Math.round(performance.now() - t0) });
+                    return res;
+                } catch (err) {
+                    lastErr = err;
+                    console.error(`Upload attempt ${i} FAILED:`, { code: err.code, message: err.message, customData: err.customData });
+                    if (err.code !== 'storage/unauthorized' && err.code !== 'storage/retry-limit-exceeded') break;
+                    await sleep(400);
+                }
+            }
+            throw lastErr;
+        }
 
         // --------------------------
         // Auth session
@@ -315,19 +344,14 @@
             }
             console.groupEnd();
 
-            // Optional smoke test when debug=1
-            if (DEBUG) {
-                await debugSmokeTest();
-            }
+            if (DEBUG) await debugSmokeTest();
         });
 
         // Logout
         const logoutBtn = document.getElementById("logoutBtn");
         if (logoutBtn) {
             logoutBtn.addEventListener("click", () => {
-                signOut(auth).then(() => {
-                    window.location.href = "index.html";
-                });
+                signOut(auth).then(() => { window.location.href = "index.html"; });
             });
         }
 
@@ -338,52 +362,27 @@
 
         let selectedFiles = []; // array of File
 
-        function filesAreSame(a, b) {
-            return a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
-        }
-        function addFiles(files) {
-            for (const f of files) {
-                if (!selectedFiles.some(sf => filesAreSame(sf, f))) {
-                    selectedFiles.push(f);
-                }
-            }
-            renderFiles();
-        }
-        function removeFileAt(index) {
-            selectedFiles.splice(index, 1);
-            renderFiles();
-        }
+        function filesAreSame(a, b) { return a.name === b.name && a.size === b.size && a.lastModified === b.lastModified; }
+        function addFiles(files) { for (const f of files) { if (!selectedFiles.some(sf => filesAreSame(sf, f))) selectedFiles.push(f); } renderFiles(); }
+        function removeFileAt(index) { selectedFiles.splice(index, 1); renderFiles(); }
         function renderFiles() {
             filesListEl.innerHTML = "";
             if (!selectedFiles.length) return;
             selectedFiles.forEach((f, idx) => {
                 const chip = document.createElement("div");
                 chip.className = "file-chip";
-                chip.innerHTML = `<span title="${f.name}">${f.name}</span>
-                                 <button type="button" class="file-remove" aria-label="Remove file">✕</button>`;
+                chip.innerHTML = `<span title="${f.name}">${f.name}</span><button type="button" class="file-remove" aria-label="Remove file">✕</button>`;
                 chip.querySelector(".file-remove").addEventListener("click", () => removeFileAt(idx));
                 filesListEl.appendChild(chip);
             });
         }
 
-        // Click-to-select
         dropzone.addEventListener("click", () => fileInput.click());
-        fileInput.addEventListener("change", (e) => {
-            if (e.target.files?.length) addFiles(e.target.files);
-            fileInput.value = ""; // allow re-selecting same file
-        });
+        fileInput.addEventListener("change", (e) => { if (e.target.files?.length) addFiles(e.target.files); fileInput.value = ""; });
 
-        // Drag & drop
-        ["dragenter", "dragover"].forEach(evt => {
-            dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add("dragover"); });
-        });
-        ["dragleave", "drop"].forEach(evt => {
-            dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove("dragover"); });
-        });
-        dropzone.addEventListener("drop", (e) => {
-            const dtFiles = e.dataTransfer?.files;
-            if (dtFiles && dtFiles.length) addFiles(dtFiles);
-        });
+        ["dragenter", "dragover"].forEach(evt => { dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add("dragover"); }); });
+        ["dragleave", "drop"].forEach(evt => { dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove("dragover"); }); });
+        dropzone.addEventListener("drop", (e) => { const dtFiles = e.dataTransfer?.files; if (dtFiles && dtFiles.length) addFiles(dtFiles); });
 
         // Helpers
         const form = document.getElementById("projectRequestForm");
@@ -392,7 +391,6 @@
         const confirmationMsg = document.getElementById("confirmationMsg");
         const getSelectedValues = (sel) => Array.from(sel.selectedOptions).map(o => o.value);
 
-        // Build Project ID (uses FIRST file)
         function buildProjectId({ sourceLang, targetLang, firstFileName, date = new Date() }) {
             const lettersOnly = (firstFileName || "").replace(/[^A-Za-z]/g, "").slice(0, 10);
             const MM = String(date.getMonth() + 1).padStart(2, "0");
@@ -405,30 +403,18 @@
             return `${src}${tgt}${lettersOnly}${MM}${DD}${YY}${HH}${mm}`;
         }
 
-        // --------------------------
-        // Error explainers (Firestore)
-        // --------------------------
         function explainFirestoreError(err) {
             const code = err?.code || '';
             switch (code) {
-                case 'permission-denied':
-                    return 'Rules blocked the write. Check Auth sign-in + rule conditions (e.g., ownerUid match).';
-                case 'unauthenticated':
-                    return 'Not signed in. Make sure mbelenluna.github.io is in Auth → Authorized domains.';
-                case 'failed-precondition':
-                    return 'Precondition failed. Sometimes appears if App Check is enforced or Firestore not initialized.';
-                case 'invalid-argument':
-                    return 'Invalid field value (e.g., undefined). Verify payload fields.';
-                case 'unavailable':
-                    return 'Service unavailable / network hiccup. Retry.';
-                default:
-                    return 'See console for details.';
+                case 'permission-denied': return 'Rules blocked the write. Check Auth sign-in + rule conditions (e.g., ownerUid match).';
+                case 'unauthenticated': return 'Not signed in. Make sure mbelenluna.github.io is in Auth → Authorized domains.';
+                case 'failed-precondition': return 'Precondition failed. Possibly App Check enforcement or DB not initialized.';
+                case 'invalid-argument': return 'Invalid field value (e.g., undefined). Verify payload fields.';
+                case 'unavailable': return 'Service unavailable / network hiccup. Retry.';
+                default: return 'See console for details.';
             }
         }
 
-        // --------------------------
-        // Smoke test (only when ?debug=1)
-        // --------------------------
         async function debugSmokeTest() {
             console.groupCollapsed('🚬 Firestore smoke test');
             try {
@@ -437,19 +423,12 @@
                 const t1 = performance.now();
                 console.log('z_debug write OK:', r.id, `(${Math.round(t1 - t0)} ms)`);
             } catch (error) {
-                console.error('z_debug write FAILED:', {
-                    code: error.code,
-                    message: error.message,
-                    customData: error.customData
-                });
+                console.error('z_debug write FAILED:', { code: error.code, message: error.message, customData: error.customData });
                 console.warn('Hint:', explainFirestoreError(error));
             }
             console.groupEnd();
         }
 
-        // --------------------------
-        // Submit handler
-        // --------------------------
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
 
@@ -461,70 +440,45 @@
             const sourceLang = getSelectedValues(sourceLangSelect);
             const targetLang = getSelectedValues(targetLangSelect);
 
-            if (!selectedFiles.length) {
-                alert("Please attach at least one file.");
-                return;
-            }
+            if (!selectedFiles.length) { alert("Please attach at least one file."); return; }
 
-            // Show loading state
-            submitBtn.disabled = true;
-            submitBtn.textContent = "Sending...";
-            loadingMsg.style.display = "block";
+            submitBtn.disabled = true; submitBtn.textContent = "Sending..."; loadingMsg.style.display = "block";
 
             console.group('📦 Submit flow');
             try {
-                // User info
                 const user = auth.currentUser;
                 console.log('Auth currentUser:', user ? { uid: user.uid, email: user.email } : null);
                 const userEmail = user?.email || "";
                 const fullName = clientFullName || user?.displayName || "";
-                const phone = ""; // optional
+                const phone = "";
 
-                // Project ID from first file
-                const projectId = buildProjectId({
-                    sourceLang,
-                    targetLang,
-                    firstFileName: selectedFiles[0].name,
-                    date: new Date()
-                });
+                const projectId = buildProjectId({ sourceLang, targetLang, firstFileName: selectedFiles[0].name, date: new Date() });
                 console.log('Computed projectId:', projectId);
 
                 // 1) Pre-generate the doc ID & create with setDoc (includes docId up front)
                 console.groupCollapsed('📝 setDoc(projectRequests)');
                 const prColl = collection(db, "projectRequests");
-                const docRef = doc(prColl); // pre-generate ID
+                const docRef = doc(prColl);
                 const payload = {
-                    projectId,
-                    rush,
-                    sourceLang: sourceLang.join(", "),
-                    targetLang: targetLang.join(", "),
-                    notes,
-                    files: [],            // start empty
-                    fullname: fullName,
-                    email: userEmail,
-                    phone: phone,
-                    status: "Uploading",  // temporary
-                    deliverables: [],
-                    createdAt: serverTimestamp(),
-                    ownerUid: user?.uid || null,
-                    docId: docRef.id
+                    projectId, rush,
+                    sourceLang: sourceLang.join(", "), targetLang: targetLang.join(", "),
+                    notes, files: [], fullname: fullName, email: userEmail, phone,
+                    status: "Uploading", deliverables: [], createdAt: serverTimestamp(),
+                    ownerUid: user?.uid || null, docId: docRef.id
                 };
                 try {
                     const t0 = performance.now();
                     await setDoc(docRef, payload);
-                    const t1 = performance.now();
-                    console.log('Doc created with ID:', docRef.id, `(${Math.round(t1 - t0)} ms)`);
+                    console.log('Doc created with ID:', docRef.id, `(${Math.round(performance.now() - t0)} ms)`);
                 } catch (error) {
-                    console.error('setDoc FAILED:', {
-                        code: error.code,
-                        message: error.message,
-                        customData: error.customData
-                    });
+                    console.error('setDoc FAILED:', { code: error.code, message: error.message, customData: error.customData });
                     console.warn('Hint:', explainFirestoreError(error));
                     throw error;
-                } finally {
-                    console.groupEnd();
-                }
+                } finally { console.groupEnd(); }
+
+                // 1b) Ensure Firestore doc is visible for Storage rule get()
+                const visible = await ensureOwnershipVisible(docRef, user.uid);
+                if (!visible) console.warn('⚠️ ownerUid not yet visible to rules — proceeding but uploads may need retry');
 
                 // 2) Upload all source files using the new docId
                 console.groupCollapsed('☁️ Uploading files');
@@ -535,34 +489,22 @@
                     console.log('Uploading to:', storagePath, 'size:', file.size, 'type:', file.type);
                     const fileRef = ref(storage, storagePath);
                     try {
-                        const t0 = performance.now();
-                        await uploadBytes(fileRef, file);
-                        const t1 = performance.now();
-                        console.log('Upload OK:', { ms: Math.round(t1 - t0) });
+                        await uploadWithRetry(fileRef, file, 3);
                         uploadedNames.push(file.name);
                     } catch (err) {
                         console.error('Upload FAILED for', file.name, err);
-                        throw err; // stop flow
-                    } finally {
-                        console.groupEnd();
-                    }
+                        throw err;
+                    } finally { console.groupEnd(); }
                 }));
                 console.groupEnd();
 
                 // 3) Final update: attach file names and mark Pending
                 console.groupCollapsed('✅ Final updateDoc(files, status)');
                 try {
-                    await updateDoc(docRef, {
-                        files: uploadedNames,
-                        status: "Pending"
-                    });
+                    await updateDoc(docRef, { files: uploadedNames, status: "Pending" });
                     console.log('Final update OK:', uploadedNames);
-                } catch (error) {
-                    console.error('Final updateDoc FAILED:', error);
-                    // Not fatal for user; continue
-                } finally {
-                    console.groupEnd();
-                }
+                } catch (error) { console.error('Final updateDoc FAILED:', error); }
+                console.groupEnd();
 
                 // 4) Send to Google Sheet
                 console.groupCollapsed('📤 Submit to Google Sheet');
@@ -579,31 +521,17 @@
                 console.log('Posted to Apps Script endpoint.');
                 console.groupEnd();
 
-                // 5) Show confirmation message and redirect
+                // 5) Show confirmation & redirect
                 loadingMsg.style.display = "none";
                 confirmationMsg.style.display = "block";
                 form.style.display = "none";
-
-                setTimeout(() => {
-                    window.location.href = "dashboard.html";
-                }, 3000);
+                setTimeout(() => { window.location.href = "dashboard.html"; }, 3000);
 
             } catch (error) {
-                // Handle errors
-                submitBtn.disabled = false;
-                submitBtn.textContent = "Send Request";
-                loadingMsg.style.display = "none";
-
-                console.error('❌ Submit flow FAILED:', {
-                    code: error.code,
-                    message: error.message,
-                    customData: error.customData
-                });
-                const hint = explainFirestoreError(error);
-                alert(`⚠️ ${error.code || 'error'}: ${error.message}\n\nHint: ${hint}`);
-            } finally {
-                console.groupEnd();
-            }
+                submitBtn.disabled = false; submitBtn.textContent = "Send Request"; loadingMsg.style.display = "none";
+                console.error('❌ Submit flow FAILED:', { code: error.code, message: error.message, customData: error.customData });
+                alert(`⚠️ ${error.code || 'error'}: ${error.message}`);
+            } finally { console.groupEnd(); }
         });
     </script>
 </body>
