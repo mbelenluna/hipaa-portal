@@ -7,15 +7,15 @@ service firebase.storage {
         get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
-    // Cliente sube sus fuentes SIN consultar Firestore
+    // Subidas del cliente (esto ya te funciona)
     match /user_uploads/{uid}/{docId}/{fileName=**} {
-      // Solo el dueño puede escribir/leer
       allow write, read: if signedIn() && request.auth.uid == uid;
     }
 
-    // (Opcional) Entregables para el cliente
+    // ✅ Entregables: solo admin puede escribir
     match /deliverables/{docId}/{fileName=**} {
       allow write: if isAdmin();
+      // lectura: dueño del proyecto o admin
       allow read: if signedIn() && (
         get(/databases/(default)/documents/projectRequests/$(docId)).data.ownerUid == request.auth.uid
         || isAdmin()

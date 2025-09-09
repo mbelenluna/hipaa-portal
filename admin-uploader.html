@@ -298,7 +298,8 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const storage = getStorage(app);
+        const storage = getStorage(app, "gs://rollingtranslationsportal.firebasestorage.app");
+    console.log("[storage] root =", sref(storage).toString());
 
         const gate = document.getElementById("status");
         const toolbar = document.getElementById("controls");
@@ -317,11 +318,13 @@
         const pending = new Map(); // docId -> File[]
 
         onAuthStateChanged(auth, async (user) => {
+      console.groupCollapsed("[auth] state changed");
+      console.log("[auth] user =", user ? {uid: user.uid, email: user.email} : null);
+      console.groupEnd();
             if (!user) { location.href = "index.html"; return; }
             gate.textContent = "Checking admin access…";
 
-            try {
-                const userDoc = await getDoc(doc(db, "users", user.uid));
+            try { console.log("[deliverables] starting upload for", input.files && input.files[0] ? input.files[0].name : "(none)"); const userDoc = await getDoc(doc(db, "users", user.uid));
                 if (!userDoc.exists() || userDoc.data().role !== "admin") {
                     gate.textContent = "Access denied. Admin only.";
                     alert("This page is for admins only.");
@@ -331,8 +334,7 @@
                 gate.textContent = "";
                 table.classList.remove("hidden");
                 await loadData();
-            } catch (err) {
-                console.error("[AUTH] Admin gate error:", err);
+            } catch (err) { console.error("[deliverables] upload failed:", {code: err.code, message: err.message, customData: err.customData}); console.error("[AUTH] Admin gate error:", err);
                 gate.textContent = "Error checking admin.";
             }
         });
@@ -340,7 +342,9 @@
         async function loadData() {
             gate.textContent = "Loading project requests…";
             const q = query(collection(db, "projectRequests"), orderBy("createdAt", "desc"));
+      console.log("[requests] running query: projectRequests orderBy(createdAt desc)");
             const snap = await getDocs(q);
+      console.log("[requests] snap.size =", snap.size);
 
             const rows = [];
             snap.forEach(d => {
@@ -515,8 +519,7 @@
             } catch (err) {
                 console.error("[UPLOAD] Failed:", err);
                 alert("Failed to upload: " + err.message);
-            } finally {
-                btn.disabled = false; btn.textContent = "Upload";
+            } finally { console.groupEnd(); btn.disabled = false; btn.textContent = "Upload";
             }
         }
 
