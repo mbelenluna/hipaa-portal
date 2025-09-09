@@ -181,7 +181,7 @@
                 return;
             }
             try {
-                const q = query(collection(db, "projectRequests"), where("email", "==", user.email));
+                const q = query(collection(db, "projectRequests"), where("ownerUid", "==", user.uid));
                 const snap = await getDocs(q);
 
                 if (snap.empty) {
