@@ -2,36 +2,77 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>My Requests — Rolling Translations</title>
-    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>My Requests - Rolling Translations</title>
+    <link rel="stylesheet" href="style.css" />
     <style>
-        table {
+        /* ---- Table polish ---- */
+        #requestsTable {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
+            margin-top: 16px;
         }
 
-        th,
-        td {
-            padding: 8px 10px;
-            border-bottom: 1px solid #eee;
-            vertical-align: top;
-        }
-
-        .chip {
-            display: inline-block;
-            padding: 3px 8px;
+        #requestsTable th,
+        #requestsTable td {
             border: 1px solid #ddd;
-            border-radius: 12px;
-            margin: 2px 4px 0 0;
-            background: #fff;
-            font-size: 12px;
+            padding: 10px;
+            text-align: left;
+            word-wrap: break-word;
+        }
+
+        #requestsTable th {
+            background: #f4f4f4;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        #requestsTable tbody tr:nth-child(even) {
+            background: #fafafa;
+        }
+
+        #requestsTable tbody tr:hover {
+            background: #f1f7ff;
+        }
+
+        .actions {
+            margin: 12px 0;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
         }
 
         .muted {
             color: #666;
+            margin: 16px 0;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
             font-size: 12px;
+            font-weight: 600;
+            background: #eee;
+        }
+
+        .badge.pending {
+            background: #fff5e6;
+        }
+
+        .badge.delivered {
+            background: #e9f8ef;
+        }
+
+        .badge.progress {
+            background: #eaf2ff;
+        }
+
+        #requestsTable tbody tr.rush {
+            background: #fff1f2;
+            /* light red */
         }
     </style>
 </head>
@@ -39,10 +80,28 @@
 <body>
     <div class="container">
         <img src="images/logo.png" alt="Rolling Translations Logo" class="logo" />
-        <h1>My Translation Requests</h1>
-        <p class="muted">Only requests created under your account are shown here.</p>
+        <h1>Your Translation Requests</h1>
 
-        <div id="content"></div>
+        <p id="emptyState" class="muted" style="display:none;">No active requests.</p>
+
+        <div class="actions">
+            <button id="newRequestBtn">Submit a new request</button>
+        </div>
+
+        <table id="requestsTable" style="display:none;">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Project ID</th>
+                    <th>Languages</th>
+                    <th>File(s)</th>
+                    <th>Status</th>
+                    <th>Notes</th>
+                    <th>Deliverables</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
 
         <button id="logoutBtn">Log out</button>
     </div>
@@ -51,78 +110,139 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
         import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
-        import { getStorage, ref as sref } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
+        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
 
-        const app = initializeApp({
+        const firebaseConfig = {
             apiKey: "AIzaSyBYjq_CaTEfFhfTChfJ6SnXSbgIzbbRHHc",
             authDomain: "rollingtranslationsportal.firebaseapp.com",
             projectId: "rollingtranslationsportal",
             storageBucket: "rollingtranslationsportal.firebasestorage.app",
             messagingSenderId: "492156326175",
             appId: "1:492156326175:web:14175badae2bbaada0e02a"
-        });
+        };
+        const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const storage = getStorage(app, "gs://rollingtranslationsportal.firebasestorage.app");
+        const storage = getStorage(app);
 
-        const el = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const table = document.getElementById("requestsTable");
+        const tbody = table.querySelector("tbody");
+        const emptyState = document.getElementById("emptyState");
+
+        document.getElementById("newRequestBtn")?.addEventListener("click", () => {
+            window.location.href = "submit-request.html";
+        });
+        document.getElementById("logoutBtn")?.addEventListener("click", () => {
+            signOut(auth).then(() => (window.location.href = "index.html"));
+        });
+
+        function statusBadge(txt) {
+            const t = (txt || "Pending").toLowerCase();
+            let cls = "badge";
+            if (t.includes("pending")) cls += " pending";
+            else if (t.includes("deliver")) cls += " delivered";
+            else cls += " progress";
+            return `<span class="${cls}">${txt || "Pending"}</span>`;
+        }
+
+        function toProjectId(data, createdAtDate) {
+            const src = (data.sourceLang || "").replace(/[^A-Za-z]/g, "");
+            const tgt = (data.targetLang || "").replace(/[^A-Za-z]/g, "");
+            const file = (data.file || "").replace(/[^A-Za-z]/g, "").slice(0, 10);
+            const d = createdAtDate || new Date();
+            const MM = String(d.getMonth() + 1).padStart(2, "0");
+            const DD = String(d.getDate()).padStart(2, "0");
+            const YY = String(d.getFullYear()).slice(-2);
+            const HH = String(d.getHours()).padStart(2, "0");
+            const mm = String(d.getMinutes()).padStart(2, "0");
+            return `${src}${tgt}${file}${MM}${DD}${YY}${HH}${mm}`;
+        }
+
+        async function filesLinks(deliverables) {
+            if (!deliverables || !deliverables.length) return "—";
+            const parts = await Promise.all(
+                deliverables.map(async (d, i) => {
+                    try {
+                        if (d.url) return `<a href="${d.url}" target="_blank" rel="noopener">File ${i + 1} ⬇️</a>`;
+                        if (!d.path) return `<span>Unavailable</span>`;
+                        const url = await getDownloadURL(ref(storage, d.path));
+                        return `<a href="${url}" target="_blank" rel="noopener">File ${i + 1} ⬇️</a>`;
+                    } catch {
+                        return `<span>Unavailable</span>`;
+                    }
+                })
+            );
+            return parts.join(" · ");
+        }
 
         onAuthStateChanged(auth, async (user) => {
-            if (!user) { window.location.href = "index.html"; return; }
-            const content = document.getElementById("content");
+            if (!user) {
+                window.location.href = "index.html";
+                return;
+            }
             try {
-                const q = query(collection(db, "projectRequests"), where("ownerUid", "==", user.uid));
+                const q = query(collection(db, "projectRequests"), where("email", "==", user.email));
                 const snap = await getDocs(q);
-                const rows = [];
-                snap.forEach(doc => rows.push({ id: doc.id, ...doc.data() }));
-                // sort by createdAt desc (client-side)
-                rows.sort((a, b) => (b.createdAt?.seconds ?? 0) - (a.createdAt?.seconds ?? 0));
 
-                if (!rows.length) {
-                    content.innerHTML = `<p>No requests yet.</p>`;
+                if (snap.empty) {
+                    emptyState.style.display = "block";
+                    table.style.display = "none";
                     return;
                 }
 
-                const html = `
-          <table>
-            <thead>
-              <tr>
-                <th>Created</th><th>Project ID</th><th>Status</th><th>Source → Target</th><th>Files</th><th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(r => {
-                    const created = r.createdAt?.toDate ? r.createdAt.toDate() : (r.createdAt?.seconds ? new Date(r.createdAt.seconds * 1000) : null);
-                    const createdStr = created ? created.toLocaleString() : "—";
-                    const files = Array.isArray(r.files) ? r.files : [];
-                    const filesHtml = files.length
-                        ? files.map(f => {
-                            const name = (f && typeof f === 'object') ? (f.name || f.path || 'file') : f;
-                            return `<span class="chip">${el(name)}</span>`;
-                        }).join("")
-                        : "—";
-                    return `
-                  <tr>
-                    <td>${el(createdStr)}</td>
-                    <td>${el(r.projectId || r.id)}</td>
-                    <td>${el(r.status || "—")}</td>
-                    <td>${el(r.sourceLang || "—")} → ${el(r.targetLang || "—")}</td>
-                    <td>${filesHtml}</td>
-                    <td>${el(r.notes || "")}</td>
-                  </tr>`;
-                }).join("")}
-            </tbody>
-          </table>
-        `;
-                content.innerHTML = html;
-            } catch (e) {
-                console.error(e);
-                content.innerHTML = `<p>⚠️ Could not load your requests.</p>`;
+                const rows = [];
+                snap.forEach(doc => {
+                    const data = doc.data();
+                    const createdAt = data.createdAt?.toDate ? data.createdAt.toDate() : null;
+                    rows.push({ id: doc.id, data, createdAt });
+                });
+                rows.sort((a, b) => (b.createdAt?.getTime?.() || 0) - (a.createdAt?.getTime?.() || 0));
+
+                tbody.innerHTML = "";
+                for (const { id, data, createdAt } of rows) {
+                    const dateText = createdAt ? createdAt.toLocaleString() : "N/A";
+                    const langs = `${data.sourceLang || ""} → ${data.targetLang || ""}`;
+                    const status = data.status || "Pending";
+                    const pid = data.projectId || toProjectId(data, createdAt);
+
+                    // ✅ FIX: show all uploaded files
+                    const fileNames = (Array.isArray(data.files) && data.files.length > 0)
+                        ? data.files.map(f => el(f.name || f)).join(", ")
+                        : (data.file ? el(data.file) : "—");
+
+                    const filesHtml = await filesLinks(data.deliverables);
+
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td>${dateText}</td>
+                        <td>${pid}</td>
+                        <td>${el(langs)}</td>
+                        <td>${fileNames}</td>
+                        <td>${statusBadge(status)}</td>
+                        <td>${el(data.notes || "—")}</td>
+                        <td>${filesHtml}</td>
+                    `;
+                    if (data.rush) tr.classList.add("rush");
+                    tbody.appendChild(tr);
+                }
+
+                emptyState.style.display = "none";
+                table.style.display = "table";
+            } catch (err) {
+                console.error("[FS] Firestore error:", err);
+                emptyState.textContent = "No active requests.";
+                emptyState.style.display = "block";
+                table.style.display = "none";
             }
         });
 
-        document.getElementById("logoutBtn")?.addEventListener("click", () => signOut(auth).then(() => window.location.href = "index.html"));
+        function el(txt) {
+            return String(txt).replace(/[&<>"'`=\/]/g, s => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;", "/": "&#x2F;", "`": "&#x60;", "=": "&#x3D;"
+            }[s]));
+        }
     </script>
+
 </body>
 
 </html>

@@ -7,6 +7,7 @@
     <title>Rolling Translations Client Portal</title>
     <link rel="stylesheet" href="style.css" />
     <style>
+        /* ---- Files UI ---- */
         .dropzone {
             border: 2px dashed #9bb4ff;
             border-radius: 10px;
@@ -73,6 +74,10 @@
             font-weight: 600;
             line-height: 1.2;
             margin: 0;
+        }
+
+        #requestsTable tbody tr.rush {
+            background: #fff1f2;
         }
     </style>
 </head>
@@ -207,8 +212,8 @@
         <button id="logoutBtn">Log out</button>
     </div>
 
-    <!-- Hidden form for email Apps Script -->
     <iframe name="hiddenFrame" style="display:none;"></iframe>
+
     <form id="spreadsheetForm" method="POST" target="hiddenFrame" style="display:none;"
         action="https://script.google.com/macros/s/AKfycbzlbLHJLnpUWB_YTIwD7bIiAs2AZh_csQvXECSABVtGFOT1r6CDVjQbvf4qJWclN0r6Rg/exec">
         <input name="fullname" id="fullnameField" />
@@ -223,14 +228,30 @@
     </form>
 
     <script type="module">
-        window.addEventListener('error', (e) => console.error('window.error:', e.message, e.error));
-        window.addEventListener('unhandledrejection', (e) => console.error('unhandledrejection:', e.reason));
+        // --------------------------
+        // Global error handlers
+        // --------------------------
+        window.addEventListener('error', (e) => {
+            console.error('🔥 window.error:', e.message, { filename: e.filename, lineno: e.lineno, colno: e.colno, error: e.error });
+        });
+        window.addEventListener('unhandledrejection', (e) => {
+            console.error('💥 unhandledrejection:', e.reason);
+        });
 
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+        import { initializeApp, setLogLevel as setCoreLogLevel } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
         import { getStorage, ref, uploadBytes } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
-        import { getFirestore, addDoc, collection, serverTimestamp, doc, getDoc, updateDoc, setDoc } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+        import { getFirestore, addDoc, collection, serverTimestamp, doc, getDoc, updateDoc, setDoc, setLogLevel as setFirestoreLogLevel } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 
+        // ---- Debug controls ----
+        const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+        if (DEBUG) {
+            setCoreLogLevel('debug');
+            setFirestoreLogLevel('debug');
+            console.info('🛠 Debug mode ON (add ?debug=0 to disable)');
+        }
+
+        // ---- Firebase config ----
         const firebaseConfig = {
             apiKey: "AIzaSyBYjq_CaTEfFhfTChfJ6SnXSbgIzbbRHHc",
             authDomain: "rollingtranslationsportal.firebaseapp.com",
@@ -239,6 +260,13 @@
             messagingSenderId: "492156326175",
             appId: "1:492156326175:web:14175badae2bbaada0e02a"
         };
+
+        console.groupCollapsed('⚙️ Firebase init');
+        console.log('Origin:', location.origin);
+        console.log('Project:', firebaseConfig.projectId);
+        console.log('Auth domain:', firebaseConfig.authDomain);
+        console.log('Storage bucket (config):', firebaseConfig.storageBucket);
+        console.groupEnd();
 
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -250,47 +278,131 @@
         let clientOrg = "";
         let clientPhone = "";
 
+        // --------------------------
+        // Helpers
+        // --------------------------
         const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+        
+
+        async function ensureOwnershipVisible(docRef, expectedUid, retries = 5) {
+            if (retries === 0) {
+                console.warn("⚠️ Max retries reached. Document not visible or uid mismatch.");
+                return false;
+            }
+
+            try {
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists() && docSnap.data().ownerUid === expectedUid) {
+                    console.log(`✅ Document is visible after ${5 - retries} attempt(s).`);
+                    return true;
+                } else {
+                    console.warn(`⏳ Document not visible or uid mismatch. Retrying... (Attempts left: ${retries})`);
+                    await new Promise(resolve => setTimeout(resolve, 500)); // Wait for 500ms
+                    return await ensureOwnershipVisible(docRef, expectedUid, retries - 1);
+                }
+            } catch (error) {
+                console.error("❌ Error while checking Firestore document:", error);
+                return false;
+            }
+        }
+
         async function uploadWithRetry(fileRef, file, attempts = 3) {
             let lastErr;
             for (let i = 1; i <= attempts; i++) {
-                try { return await uploadBytes(fileRef, file); }
-                catch (err) { lastErr = err; await sleep(400); }
+                try {
+                    const t0 = performance.now();
+                    const res = await uploadBytes(fileRef, file);
+                    console.log(`Upload OK (attempt ${i}):`, { ms: Math.round(performance.now() - t0) });
+                    return res;
+                } catch (err) {
+                    lastErr = err;
+                    console.error(`Upload attempt ${i} FAILED:`, { code: err.code, message: err.message, customData: err.customData });
+                    if (err.code !== 'storage/unauthorized' && err.code !== 'storage/retry-limit-exceeded') break;
+                    await sleep(400);
+                }
             }
             throw lastErr;
         }
 
-        // UI: multi-file
+        // --------------------------
+        // Auth session
+        // --------------------------
+        onAuthStateChanged(auth, async (user) => {
+            console.groupCollapsed('👤 Auth state changed');
+            if (!user) {
+                console.warn('Not signed in, redirecting to index.html');
+                console.groupEnd();
+                window.location.href = "index.html";
+                return;
+            }
+            console.log('User:', { uid: user.uid, email: user.email, displayName: user.displayName });
+            try {
+                const userRef = doc(db, "users", user.uid);
+                const userSnap = await getDoc(userRef);
+                if (userSnap.exists()) {
+                    const userData = userSnap.data();
+                    clientFullName = userData.fullName || user.displayName || '';
+                    clientOrg = userData.org || '';
+                    clientPhone = userData.phone || "";
+                    console.log('Loaded user profile:', { clientFullName, clientOrg });
+                } else {
+                    console.log('No user profile doc; using auth displayName only.');
+                    clientFullName = user.displayName || '';
+                }
+            } catch (e) {
+                console.error('Failed to fetch user profile:', e);
+            }
+            console.groupEnd();
+
+            if (DEBUG) await debugSmokeTest();
+        });
+
+        // Logout
+        const logoutBtn = document.getElementById("logoutBtn");
+        if (logoutBtn) {
+            logoutBtn.addEventListener("click", () => {
+                signOut(auth).then(() => { window.location.href = "index.html"; });
+            });
+        }
+
+        // ---------- Multiple files handling ----------
         const dropzone = document.getElementById("dropzone");
         const fileInput = document.getElementById("file");
         const filesListEl = document.getElementById("filesList");
-        let selectedFiles = [];
-        const filesAreSame = (a, b) => a.name === b.name && a.size === b.size && a.lastModified === b.lastModified;
-        const addFiles = (files) => { for (const f of files) if (!selectedFiles.some(sf => filesAreSame(sf, f))) selectedFiles.push(f); renderFiles(); };
-        const removeFileAt = (i) => { selectedFiles.splice(i, 1); renderFiles(); };
-        const renderFiles = () => {
+
+        let selectedFiles = []; // array of File
+
+        function filesAreSame(a, b) { return a.name === b.name && a.size === b.size && a.lastModified === b.lastModified; }
+        function addFiles(files) { for (const f of files) { if (!selectedFiles.some(sf => filesAreSame(sf, f))) selectedFiles.push(f); } renderFiles(); }
+        function removeFileAt(index) { selectedFiles.splice(index, 1); renderFiles(); }
+        function renderFiles() {
             filesListEl.innerHTML = "";
+            if (!selectedFiles.length) return;
             selectedFiles.forEach((f, idx) => {
                 const chip = document.createElement("div");
                 chip.className = "file-chip";
-                chip.innerHTML = `<span title="${f.name}">${f.name}</span>
-                          <button type="button" class="file-remove" aria-label="Remove file">✕</button>`;
+                chip.innerHTML = `<span title="${f.name}">${f.name}</span><button type="button" class="file-remove" aria-label="Remove file">✕</button>`;
                 chip.querySelector(".file-remove").addEventListener("click", () => removeFileAt(idx));
                 filesListEl.appendChild(chip);
             });
-        };
+        }
+
         dropzone.addEventListener("click", () => fileInput.click());
         fileInput.addEventListener("change", (e) => { if (e.target.files?.length) addFiles(e.target.files); fileInput.value = ""; });
-        ["dragenter", "dragover"].forEach(evt => dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add("dragover"); }));
-        ["dragleave", "drop"].forEach(evt => dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove("dragover"); }));
-        dropzone.addEventListener("drop", (e) => { const dt = e.dataTransfer?.files; if (dt?.length) addFiles(dt); });
 
+        ["dragenter", "dragover"].forEach(evt => { dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.add("dragover"); }); });
+        ["dragleave", "drop"].forEach(evt => { dropzone.addEventListener(evt, (e) => { e.preventDefault(); e.stopPropagation(); dropzone.classList.remove("dragover"); }); });
+        dropzone.addEventListener("drop", (e) => { const dtFiles = e.dataTransfer?.files; if (dtFiles && dtFiles.length) addFiles(dtFiles); });
+
+        // Helpers
         const form = document.getElementById("projectRequestForm");
         const submitBtn = document.getElementById("submitBtn");
         const loadingMsg = document.getElementById("loadingMsg");
         const confirmationMsg = document.getElementById("confirmationMsg");
         const getSelectedValues = (sel) => Array.from(sel.selectedOptions).map(o => o.value);
-        const buildProjectId = ({ sourceLang, targetLang, firstFileName, date = new Date() }) => {
+
+        function buildProjectId({ sourceLang, targetLang, firstFileName, date = new Date() }) {
             const lettersOnly = (firstFileName || "").replace(/[^A-Za-z]/g, "").slice(0, 10);
             const MM = String(date.getMonth() + 1).padStart(2, "0");
             const DD = String(date.getDate()).padStart(2, "0");
@@ -300,106 +412,175 @@
             const src = (Array.isArray(sourceLang) ? sourceLang.join("") : sourceLang || "").replace(/[^A-Za-z]/g, "");
             const tgt = (Array.isArray(targetLang) ? targetLang.join("") : targetLang || "").replace(/[^A-Za-z]/g, "");
             return `${src}${tgt}${lettersOnly}${MM}${DD}${YY}${HH}${mm}`;
-        };
+        }
 
-        onAuthStateChanged(auth, async (user) => {
-            if (!user) { window.location.href = "index.html"; return; }
+        function explainFirestoreError(err) {
+            const code = err?.code || '';
+            switch (code) {
+                case 'permission-denied': return 'Rules blocked the write. Check Auth sign-in + rule conditions (e.g., ownerUid match).';
+                case 'unauthenticated': return 'Not signed in. Make sure mbelenluna.github.io is in Auth → Authorized domains.';
+                case 'failed-precondition': return 'Precondition failed. Possibly App Check enforcement or DB not initialized.';
+                case 'invalid-argument': return 'Invalid field value (e.g., undefined). Verify payload fields.';
+                case 'unavailable': return 'Service unavailable / network hiccup. Retry.';
+                default: return 'See console for details.';
+            }
+        }
+
+        async function debugSmokeTest() {
+            console.groupCollapsed('🚬 Firestore smoke test');
             try {
-                const userRef = doc(db, "users", user.uid);
-                const snap = await getDoc(userRef);
-                if (snap.exists()) {
-                    const u = snap.data();
-                    clientFullName = u.fullName || user.displayName || (user.email?.split("@")[0] ?? "");
-                    clientOrg = u.org || "";
-                    clientPhone = u.phone || "";
-                } else {
-                    clientFullName = user.displayName || (user.email?.split("@")[0] ?? "");
-                    clientOrg = ""; clientPhone = "";
-                }
-            } catch (e) { console.error("Load profile failed:", e); }
-        });
-
-        document.getElementById("logoutBtn")?.addEventListener("click", () => signOut(auth).then(() => window.location.href = "index.html"));
+                const t0 = performance.now();
+                const r = await addDoc(collection(db, "z_debug"), { ok: true, t: serverTimestamp(), origin: location.origin });
+                const t1 = performance.now();
+                console.log('z_debug write OK:', r.id, `(${Math.round(t1 - t0)} ms)`);
+            } catch (error) {
+                console.error('z_debug write FAILED:', { code: error.code, message: error.message, customData: error.customData });
+                console.warn('Hint:', explainFirestoreError(error));
+            }
+            console.groupEnd();
+        }
 
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
-            const sourceLang = getSelectedValues(document.getElementById("sourceLang"));
-            const targetLang = getSelectedValues(document.getElementById("targetLang"));
-            const notes = document.getElementById("notes").value || "";
+
+            const sourceLangSelect = document.getElementById("sourceLang");
+            const targetLangSelect = document.getElementById("targetLang");
+            const notes = document.getElementById("notes").value;
             const rush = document.getElementById("rush").checked;
 
-            if (!selectedFiles.length) { alert("Please attach at least one file."); return; }
+            const sourceLang = getSelectedValues(sourceLangSelect);
+            const targetLang = getSelectedValues(targetLangSelect);
 
-            submitBtn.disabled = true; submitBtn.textContent = "Sending..."; loadingMsg.style.display = "block";
+            if (!selectedFiles.length) {
+                alert("Please attach at least one file.");
+                return;
+            }
+
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Sending...";
+            loadingMsg.style.display = "block";
+
+            console.group('📦 Submit flow');
             try {
                 const user = auth.currentUser;
+                if (!user) {
+                    throw new Error("Authentication error: user not signed in.");
+                }
+                console.log('Auth currentUser:', { uid: user.uid, email: user.email });
                 const userEmail = user?.email || "";
                 const fullName = clientFullName || user?.displayName || (userEmail.split("@")[0] ?? "");
                 const phone = clientPhone || "";
 
-                const projectId = buildProjectId({ sourceLang, targetLang, firstFileName: selectedFiles[0].name });
+                const projectId = buildProjectId({ sourceLang, targetLang, firstFileName: selectedFiles[0].name, date: new Date() });
+                console.log('Computed projectId:', projectId);
 
-                // Create Firestore doc with pre-generated ID (includes docId)
+                // 1) Create the Firestore document first.
+                console.groupCollapsed('📝 setDoc(projectRequests)');
                 const prColl = collection(db, "projectRequests");
                 const docRef = doc(prColl);
                 const payload = {
-                    projectId, rush,
+                    projectId,
+                    rush,
                     sourceLang: sourceLang.join(", "),
                     targetLang: targetLang.join(", "),
                     notes,
                     files: [],
-                    fileNames: [],
                     fullname: fullName,
                     email: userEmail,
                     phone,
                     status: "Uploading",
                     deliverables: [],
                     createdAt: serverTimestamp(),
-                    ownerUid: user?.uid || null,
+                    ownerUid: user.uid,
                     docId: docRef.id
                 };
-                await setDoc(docRef, payload);
-                console.log("setDoc OK:", docRef.id);
-
-                // Upload all files to user_uploads/{uid}/{docId}/...
-                const uploaded = [];
-                for (const file of selectedFiles) {
-                    const storagePath = `user_uploads/${auth.currentUser.uid}/${docRef.id}/${Date.now()}_${file.name}`;
-                    console.log("Uploading to:", storagePath);
-                    const fileRef = ref(storage, storagePath);
-                    await uploadWithRetry(fileRef, file, 3);
-                    uploaded.push({ name: file.name, path: storagePath });
+                try {
+                    const t0 = performance.now();
+                    await setDoc(docRef, payload);
+                    console.log('Doc created with ID:', docRef.id, `(${Math.round(performance.now() - t0)} ms)`);
+                } catch (error) {
+                    console.error('setDoc FAILED:', { code: error.code, message: error.message, customData: error.customData });
+                    console.warn('Hint:', explainFirestoreError(error));
+                    throw error;
+                } finally {
+                    console.groupEnd();
                 }
 
-                // Final update
-                await updateDoc(docRef, {
-                    files: uploaded,
-                    fileNames: uploaded.map(x => x.name),
-                    status: "Pending"
-                });
+                // 2) ENSURE ownership is visible to Storage rules before attempting upload.
+                console.groupCollapsed('⌛️ Ensuring document ownership is visible to Storage rules');
+                const visible = await ensureOwnershipVisible(docRef, user.uid);
+                console.groupEnd();
 
-                // Send email to Apps Script
+                // This is the CRITICAL change: it throws an error if the ownership check fails.
+                if (!visible) {
+                    console.error('❌ Final check failed: Ownership was not visible to Storage rules. Aborting upload.');
+                    throw new Error('Project document could not be validated. Please try again.');
+                }
+
+                // 3) Upload all source files using the new docId.
+                console.groupCollapsed('☁️ Uploading files');
+                const uploadedNames = [];
+                await Promise.all(selectedFiles.map(async (file, idx) => {
+                    const storagePath = `user_uploads/${auth.currentUser.uid}/${docRef.id}/${Date.now()}_${file.name}`;
+                    console.groupCollapsed(`↥ [${idx + 1}/${selectedFiles.length}] ${file.name}`);
+                    console.log('Uploading to:', storagePath, 'size:', file.size, 'type:', file.type);
+                    const fileRef = ref(storage, storagePath);
+                    try {
+                        await uploadWithRetry(fileRef, file, 3);
+                        uploadedNames.push(file.name);
+                    } catch (err) {
+                        console.error('Upload FAILED for', file.name, err);
+                        throw err;
+                    } finally {
+                        console.groupEnd();
+                    }
+                }));
+                console.groupEnd();
+
+                // 4) Final update: attach file names and mark Pending.
+                console.groupCollapsed('✅ Final updateDoc(files, status)');
+                try {
+                    await updateDoc(docRef, {
+                        files: uploadedNames,
+                        status: "Pending"
+                    });
+                    console.log('Final update OK:', uploadedNames);
+                } catch (error) {
+                    console.error('Final updateDoc FAILED:', error);
+                }
+                console.groupEnd();
+
+                // 5) Send to Google Sheet.
+                console.groupCollapsed('📤 Submit to Google Sheet');
                 document.getElementById("fullnameField").value = fullName;
                 document.getElementById("emailField").value = userEmail;
                 document.getElementById("phoneField").value = phone;
                 document.getElementById("sourceLangField").value = sourceLang.join(", ");
                 document.getElementById("targetLangField").value = targetLang.join(", ");
                 document.getElementById("notesField").value = notes;
-                document.getElementById("fileNameField").value = uploaded.map(x => x.name).join(", ");
+                document.getElementById("fileNameField").value = uploadedNames.join(", ");
                 document.getElementById("projectIdField").value = projectId;
                 document.getElementById("rushField").value = rush ? "Yes" : "No";
                 document.getElementById("spreadsheetForm").submit();
+                console.log('Posted to Apps Script endpoint.');
+                console.groupEnd();
 
-                // UI success
+                // 6) Show confirmation & redirect.
                 loadingMsg.style.display = "none";
-                document.getElementById("projectRequestForm").style.display = "none";
-                document.getElementById("confirmationMsg").style.display = "block";
-                setTimeout(() => window.location.href = "dashboard.html", 2500);
+                confirmationMsg.style.display = "block";
+                form.style.display = "none";
+                setTimeout(() => {
+                    window.location.href = "dashboard.html";
+                }, 3000);
 
             } catch (error) {
-                console.error("Submit failed:", error);
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Send Request";
+                loadingMsg.style.display = "none";
+                console.error('❌ Submit flow FAILED:', { code: error.code, message: error.message, customData: error.customData });
                 alert(`⚠️ ${error.code || 'error'}: ${error.message}`);
-                submitBtn.disabled = false; submitBtn.textContent = "Send Request"; loadingMsg.style.display = "none";
+            } finally {
+                console.groupEnd();
             }
         });
     </script>

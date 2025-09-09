@@ -2,49 +2,246 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Admin — Requests & Deliverables</title>
-    <link rel="stylesheet" href="style.css">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <title>Admin – Project Requests</title>
+    <link rel="stylesheet" href="style.css" />
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f9fafb;
+            margin: 20px;
+            color: #111827;
+        }
+
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, .08);
+            padding: 20px;
+        }
+
+        .logo {
+            width: fit-content;
+            height: 60px;
+            display: block;
+            margin: 0 auto 14px;
+        }
+
+        h1 {
+            text-align: center;
+            margin: 6px 0 4px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #6b7280;
+            margin: 0 0 18px;
+        }
+
+        tr.rush {
+            background: #fff1f2;
+            /* light red background */
+        }
+
+        tr.rush>td:first-child {
+            border-left: 4px solid #fda4af;
+            /* soft red border accent */
+        }
+
+        /* Control bar */
+        #controls {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        #search {
+            flex: 0 0 auto;
+            width: clamp(260px, 32vw, 460px);
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 14px;
+            background: #fff;
+        }
+
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            height: 40px;
+            max-width: 110px;
+            padding: 0 16px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 14px;
+            cursor: pointer;
+            transition: filter .15s;
+            flex: 0 0 auto;
+            margin-top: 0 !important;
+        }
+
+        .btn.primary {
+            background: #2563eb;
+            color: #fff;
+        }
+
+        .btn.secondary {
+            background: #f3f4f6;
+            color: #111827;
+            border: 1px solid #d1d5db;
+        }
+
+        .btn:hover {
+            filter: brightness(.97);
+        }
+
+        /* Tabla */
+        .table-wrap {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+
         table {
             width: 100%;
             border-collapse: collapse;
+            font-size: 14px;
+            table-layout: fixed;
+            min-width: 980px;
+        }
+
+        thead {
+            background: #f3f4f6;
         }
 
         th,
         td {
             padding: 8px 10px;
-            border-bottom: 1px solid #eee;
+            border: 1px solid #e5e7eb;
             vertical-align: top;
+            text-align: left;
+            word-wrap: break-word;
+        }
+
+        /* Columnas compactas */
+        th.date-col,
+        td.date-col {
+            width: 76px;
+        }
+
+        th.client-col,
+        td.client-col {
+            width: 180px;
+        }
+
+        th.project-col,
+        td.project-col {
+            width: 96px;
+        }
+
+        th.lang-col,
+        td.lang-col {
+            width: 110px;
+        }
+
+        th.files-col,
+        td.files-col {
+            width: 110px;
+        }
+
+        th.status-col,
+        td.status-col {
+            width: 110px;
+        }
+
+        th.deliver-col,
+        td.deliver-col {
+            width: 100px;
+        }
+
+        th.upload-col,
+        td.upload-col {
+            width: 230px;
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
         }
 
         .chip {
-            display: inline-block;
-            padding: 3px 8px;
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
             border: 1px solid #ddd;
-            border-radius: 12px;
-            margin: 2px 4px 0 0;
+            border-radius: 14px;
+            padding: 4px 8px;
             background: #fff;
             font-size: 12px;
         }
 
-        .muted {
-            color: #666;
+        .status-select {
+            width: 100%;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            background: #fff;
+        }
+
+        /* Upload column */
+        .upload-col {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .upload-col input[type="file"] {
+            width: 100%;
+        }
+
+        .pending-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            max-height: 120px;
+            overflow: auto;
+        }
+
+        .pending-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 6px 8px;
+            background: #fff;
             font-size: 12px;
         }
 
-        .row-actions {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-            flex-wrap: wrap;
+        .pending-item .name {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
-        .uploader {
-            display: flex;
-            gap: 6px;
-            align-items: center;
+        .pending-item .remove {
+            border: none;
+            background: #ffe8e8;
+            color: #b42318;
+            border-radius: 8px;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+
+        .pending-item .remove:hover {
+            filter: brightness(.98);
         }
     </style>
 </head>
@@ -52,161 +249,282 @@
 <body>
     <div class="container">
         <img src="images/logo.png" alt="Rolling Translations Logo" class="logo" />
-        <h1>Admin — Project Requests</h1>
-        <p class="muted">You must be <strong>admin</strong> to view all requests and upload deliverables.</p>
+        <h1>Admin – Project Requests</h1>
+        <p class="subtitle">Manage requests, upload deliverables, and update status.</p>
 
-        <div id="guard"></div>
-        <div id="content" style="display:none;"></div>
+        <div id="controls">
+            <input id="search" type="text" placeholder="Search by client name, email, projectId, notes…" />
+            <button id="refreshBtn" class="btn primary">Refresh</button>
+            <button id="logoutBtn" class="btn secondary">Log out</button>
+        </div>
 
-        <button id="logoutBtn">Log out</button>
+        <div id="status">Checking admin access…</div>
+
+        <div class="table-wrap">
+            <table id="reqTable" class="hidden">
+                <thead>
+                    <tr>
+                        <th class="date-col">Date</th>
+                        <th class="client-col">Client</th>
+                        <th class="project-col">Project ID</th>
+                        <th class="lang-col">Languages</th>
+                        <th class="files-col">Source files</th>
+                        <th class="status-col">Status</th>
+                        <th class="deliver-col">Deliverables</th>
+                        <th class="upload-col">Upload</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+
+        <p id="emptyState" class="subtitle hidden">No requests found.</p>
     </div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, collection, getDocs, orderBy, query, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
-        import { getStorage, ref as sref, uploadBytes } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
+        import { getFirestore, collection, getDocs, query, orderBy, updateDoc, doc, getDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
 
-        const app = initializeApp({
+        const firebaseConfig = {
             apiKey: "AIzaSyBYjq_CaTEfFhfTChfJ6SnXSbgIzbbRHHc",
             authDomain: "rollingtranslationsportal.firebaseapp.com",
             projectId: "rollingtranslationsportal",
             storageBucket: "rollingtranslationsportal.firebasestorage.app",
             messagingSenderId: "492156326175",
             appId: "1:492156326175:web:14175badae2bbaada0e02a"
-        });
+        };
+        const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
-        const storage = getStorage(app, "gs://rollingtranslationsportal.firebasestorage.app");
+        const storage = getStorage(app);
 
-        const el = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const gate = document.getElementById("status");
+        const toolbar = document.getElementById("controls");
+        const table = document.getElementById("reqTable");
+        const tbody = table.querySelector("tbody");
+        const emptyState = document.getElementById("emptyState");
+        const searchInput = document.getElementById("search");
+        const logoutBtn = document.getElementById("logoutBtn");
+        const refreshBtn = document.getElementById("refreshBtn");
 
-        async function isAdmin(uid) {
-            if (!uid) return false;
-            try {
-                const uref = doc(db, "users", uid);
-                const usnap = await getDoc(uref);
-                return !!(usnap.exists() && usnap.data()?.role === "admin");
-            } catch { return false; }
-        }
+        logoutBtn.addEventListener("click", () => signOut(auth).then(() => location.href = "index.html"));
+        refreshBtn.addEventListener("click", loadData);
+        searchInput.addEventListener("input", () => renderRows(window.__allRows || []));
 
-        async function uploadDeliverable(docId, file) {
-            const path = `deliverables/${docId}/${Date.now()}_${file.name}`;
-            const r = sref(storage, path);
-            await uploadBytes(r, file);
-            await updateDoc(doc(db, "projectRequests", docId), {
-                deliverables: arrayUnion({ name: file.name, path })
-            });
-            return { name: file.name, path };
-        }
+        const STATUS_OPTIONS = ["Pending", "In progress", "Delivered", "Finalized", "Rejected"];
+        const pending = new Map(); // docId -> File[]
 
         onAuthStateChanged(auth, async (user) => {
-            const guard = document.getElementById("guard");
-            const content = document.getElementById("content");
-
-            if (!user) { window.location.href = "index.html"; return; }
-
-            const ok = await isAdmin(user.uid);
-            if (!ok) {
-                guard.innerHTML = `<p>⛔ You do not have admin access.</p>`;
-                content.style.display = "none";
-                return;
-            }
-
-            guard.innerHTML = `<p class="muted">Signed in as admin: ${el(user.email || user.uid)}</p>`;
-            content.style.display = "block";
+            if (!user) { location.href = "index.html"; return; }
+            gate.textContent = "Checking admin access…";
 
             try {
-                const q = query(collection(db, "projectRequests"), orderBy("createdAt", "desc"));
-                const snap = await getDocs(q);
-                const rows = [];
-                snap.forEach(d => rows.push({ id: d.id, ...d.data() }));
-
-                if (!rows.length) {
-                    content.innerHTML = `<p>No requests yet.</p>`;
+                const userDoc = await getDoc(doc(db, "users", user.uid));
+                if (!userDoc.exists() || userDoc.data().role !== "admin") {
+                    gate.textContent = "Access denied. Admin only.";
+                    alert("This page is for admins only.");
+                    location.href = "index.html";
                     return;
                 }
-
-                const html = `
-          <table>
-            <thead>
-              <tr>
-                <th>Created</th><th>Client</th><th>Project ID</th><th>Status</th><th>Langs</th><th>Files</th><th>Deliverables</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${rows.map(r => {
-                    const created = r.createdAt?.toDate ? r.createdAt.toDate() : (r.createdAt?.seconds ? new Date(r.createdAt.seconds * 1000) : null);
-                    const createdStr = created ? created.toLocaleString() : "—";
-                    const files = Array.isArray(r.files) ? r.files : [];
-                    const filesHtml = files.length
-                        ? files.map(f => {
-                            const name = (f && typeof f === 'object') ? (f.name || f.path || 'file') : f;
-                            return `<span class="chip" title="${el((f.path || name))}">${el(name)}</span>`;
-                        }).join("")
-                        : "—";
-                    const delivs = Array.isArray(r.deliverables) ? r.deliverables : [];
-                    const delivsHtml = delivs.length
-                        ? delivs.map(d => `<span class="chip" title="${el(d.path || d.name)}">${el(d.name || 'file')}</span>`).join("")
-                        : "—";
-
-                    return `
-                  <tr data-docid="${el(r.id)}">
-                    <td>${el(createdStr)}</td>
-                    <td>${el(r.fullname || r.email || r.ownerUid || '—')}</td>
-                    <td>${el(r.projectId || r.id)}</td>
-                    <td>${el(r.status || '—')}</td>
-                    <td>${el(r.sourceLang || '—')} → ${el(r.targetLang || '—')}</td>
-                    <td>${filesHtml}</td>
-                    <td class="deliverables">${delivsHtml}</td>
-                    <td class="row-actions">
-                      <div class="uploader">
-                        <input type="file" class="delivInput" />
-                        <button class="delivBtn">Upload deliverable</button>
-                      </div>
-                    </td>
-                  </tr>`;
-                }).join("")}
-            </tbody>
-          </table>
-        `;
-                content.innerHTML = html;
-
-                // Wire up each row's deliverable upload
-                content.querySelectorAll("tr[data-docid]").forEach(tr => {
-                    const docId = tr.getAttribute("data-docid");
-                    const input = tr.querySelector(".delivInput");
-                    const btn = tr.querySelector(".delivBtn");
-                    const delivCell = tr.querySelector(".deliverables");
-                    btn.addEventListener("click", async (e) => {
-                        e.preventDefault();
-                        if (!input.files || !input.files[0]) { alert("Choose a file first."); return; }
-                        btn.disabled = true; btn.textContent = "Uploading...";
-                        try {
-                            const file = input.files[0];
-                            const d = await uploadDeliverable(docId, file);
-                            // Update UI
-                            const span = document.createElement("span");
-                            span.className = "chip";
-                            span.textContent = d.name;
-                            delivCell.appendChild(span);
-                            input.value = "";
-                        } catch (err) {
-                            console.error(err);
-                            alert("Upload failed.");
-                        } finally {
-                            btn.disabled = false; btn.textContent = "Upload deliverable";
-                        }
-                    });
-                });
-
-            } catch (e) {
-                console.error(e);
-                content.innerHTML = `<p>⚠️ Could not load project requests.</p>`;
+                gate.textContent = "";
+                table.classList.remove("hidden");
+                await loadData();
+            } catch (err) {
+                console.error("[AUTH] Admin gate error:", err);
+                gate.textContent = "Error checking admin.";
             }
         });
 
-        document.getElementById("logoutBtn")?.addEventListener("click", () => signOut(auth).then(() => window.location.href = "index.html"));
+        async function loadData() {
+            gate.textContent = "Loading project requests…";
+            const q = query(collection(db, "projectRequests"), orderBy("createdAt", "desc"));
+            const snap = await getDocs(q);
+
+            const rows = [];
+            snap.forEach(d => {
+                const data = d.data();
+                rows.push({
+                    id: d.id,
+                    createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : null,
+                    fullname: data.fullname || "",
+                    email: data.email || "",
+                    sourceLang: data.sourceLang || "",
+                    targetLang: data.targetLang || "",
+                    files: Array.isArray(data.files) ? data.files : (data.file ? [data.file] : []),
+                    notes: data.notes || "",
+                    status: data.status || "Pending",
+                    deliverables: Array.isArray(data.deliverables) ? data.deliverables : [],
+                    projectId: data.projectId || "",
+                    rush: !!data.rush
+                });
+            });
+
+            window.__allRows = rows;
+            renderRows(rows);
+            gate.textContent = "";
+        }
+
+        function renderRows(rows) {
+            tbody.innerHTML = "";
+            const q = (searchInput.value || "").trim().toLowerCase();
+            const filtered = rows.filter(r => {
+                if (!q) return true;
+                return [r.fullname, r.email, r.projectId, r.status, r.sourceLang, r.targetLang, r.files.join(", "), r.notes]
+                    .join("|").toLowerCase().includes(q);
+            });
+
+            if (!filtered.length) { emptyState.classList.remove("hidden"); return; }
+            emptyState.classList.add("hidden");
+
+            for (const r of filtered) {
+                const tr = document.createElement("tr");
+                if (r.rush) tr.classList.add("rush");
+                const dateText = r.createdAt ? r.createdAt.toLocaleString() : "N/A";
+                const langs = `${r.sourceLang} → ${r.targetLang}`;
+                const filesHtml = r.files.length
+                    ? `<div class="chips">${r.files.map(f => `<span class="chip">${el(f)}</span>`).join("")}</div>`
+                    : "—";
+
+                const statusSel = `
+          <select class="status-select" data-docid="${r.id}">
+            ${STATUS_OPTIONS.map(s => `<option value="${s}" ${s === r.status ? 'selected' : ''}>${s}</option>`).join("")}
+          </select>
+          <div class="small">docId: <code>${el(r.id)}</code></div>
+        `;
+
+                const delivHtml = r.deliverables?.length
+                    ? `<div class="chips">${r.deliverables.map((d, i) => {
+                        const name = d.name || `File ${i + 1}`;
+                        const url = d.url || "";
+                        return url
+                            ? `<a class="chip" href="${url}" target="_blank" rel="noopener" download>${el(name)} ⬇️</a>`
+                            : `<span class="chip">${el(name)} (no URL)</span>`;
+                    }).join("")}</div>`
+                    : "—";
+
+                const uploadId = `up_${r.id}`;
+                const upHtml = `
+          <div class="upload-col" data-docid="${r.id}">
+            <input type="file" id="${uploadId}" multiple />
+            <div class="pending-list" id="plist_${r.id}"></div>
+            <button class="btn primary" data-docid="${r.id}" data-input="${uploadId}">Upload</button>
+          </div>
+        `;
+
+                tr.innerHTML = `
+          <td class="date-col">${dateText}</td>
+          <td class="client-col">
+            <strong>${el(r.fullname) || "—"}</strong><br>
+            <span class="small">${el(r.email) || "—"}</span>
+          </td>
+          <td class="project-col">${el(r.projectId) || "—"}</td>
+          <td class="lang-col">${el(langs)}</td>
+          <td class="files-col">${filesHtml}</td>
+          <td class="status-col">${statusSel}</td>
+          <td class="deliver-col">${delivHtml}</td>
+          <td class="upload-col">${upHtml}</td>
+        `;
+                tbody.appendChild(tr);
+
+                // input acumulador
+                const input = document.getElementById(uploadId);
+                input.addEventListener("change", (e) => {
+                    const files = Array.from(e.target.files || []);
+                    if (!files.length) return;
+                    const list = pending.get(r.id) || [];
+                    files.forEach(f => {
+                        if (!list.some(x => x.name === f.name && x.size === f.size)) list.push(f);
+                    });
+                    pending.set(r.id, list);
+                    e.target.value = "";
+                    renderPendingList(r.id);
+                });
+            }
+
+            tbody.querySelectorAll("select.status-select").forEach(sel => sel.addEventListener("change", onStatusChange));
+            tbody.querySelectorAll("button.btn.primary").forEach(btn => btn.addEventListener("click", onUploadClick));
+
+            filtered.forEach(r => renderPendingList(r.id));
+        }
+
+        function renderPendingList(docId) {
+            const cont = document.getElementById(`plist_${docId}`);
+            if (!cont) return;
+            cont.innerHTML = "";
+            const list = pending.get(docId) || [];
+            if (!list.length) {
+                cont.innerHTML = `<div class="small" style="opacity:.7">No pending files</div>`;
+                return;
+            }
+            list.forEach((f, idx) => {
+                const row = document.createElement("div");
+                row.className = "pending-item";
+                row.innerHTML = `
+          <span class="name" title="${el(f.name)}">${el(f.name)}</span>
+          <button class="remove" data-docid="${docId}" data-index="${idx}" title="Remove">✖</button>
+        `;
+                cont.appendChild(row);
+            });
+            cont.querySelectorAll("button.remove").forEach(b => b.addEventListener("click", (e) => {
+                const d = e.currentTarget.dataset.docid;
+                const i = Number(e.currentTarget.dataset.index);
+                const arr = pending.get(d) || [];
+                arr.splice(i, 1);
+                pending.set(d, arr);
+                renderPendingList(d);
+            }));
+        }
+
+        async function onStatusChange(e) {
+            const sel = e.currentTarget;
+            const docId = sel.dataset.docid;
+            const value = sel.value;
+            try { await updateDoc(doc(db, "projectRequests", docId), { status: value }); }
+            catch (err) { console.error("[STATUS] Update failed:", err); alert("Failed to update status: " + err.message); }
+        }
+
+        async function onUploadClick(e) {
+            const btn = e.currentTarget;
+            const docId = btn.dataset.docid;
+            const list = pending.get(docId) || [];
+            if (!list.length) { alert("Add files first (use Choose files)."); return; }
+
+            btn.disabled = true; btn.textContent = "Uploading…";
+            try {
+                const updates = [];
+                for (const f of list) {
+                    const path = `deliverables/${docId}/${Date.now()}_${f.name}`;
+                    const fileRef = ref(storage, path);
+                    const metadata = {
+                        contentType: f.type || 'application/octet-stream',
+                        contentDisposition: `attachment; filename="${f.name}"`
+                    };
+                    await uploadBytes(fileRef, f, metadata);
+                    const url = await getDownloadURL(fileRef);
+                    updates.push({ name: f.name, path, url, uploadedAt: new Date() });
+                }
+                await updateDoc(doc(db, "projectRequests", docId), {
+                    deliverables: arrayUnion(...updates),
+                    status: "Delivered"
+                });
+                pending.set(docId, []);
+                renderPendingList(docId);
+                await loadData();
+            } catch (err) {
+                console.error("[UPLOAD] Failed:", err);
+                alert("Failed to upload: " + err.message);
+            } finally {
+                btn.disabled = false; btn.textContent = "Upload";
+            }
+        }
+
+        function el(txt) {
+            return String(txt ?? "").replace(/[&<>"'`=\/]/g, s => ({
+                "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;", "/": "&#x2F;", "`": "&#x60;", "=": "&#x3D;"
+            }[s]));
+        }
     </script>
 </body>
 
