@@ -282,20 +282,28 @@
         // --------------------------
         const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
-        async function ensureOwnershipVisible(docRef, uid, maxTries = 6, delay = 250) {
-            // Ensures the Storage rule's get() sees ownerUid for this doc
-            for (let i = 0; i < maxTries; i++) {
-                try {
-                    const snap = await getDoc(docRef);
-                    const ok = snap.exists() && snap.data()?.ownerUid === uid;
-                    console.log(`🔎 ownership check [${i + 1}/${maxTries}]:`, { exists: snap.exists(), ownerUid: snap.data()?.ownerUid, expected: uid, ok });
-                    if (ok) return true;
-                } catch (e) {
-                    console.warn('ownership check error:', e);
-                }
-                await sleep(delay);
+        
+
+        async function ensureOwnershipVisible(docRef, expectedUid, retries = 5) {
+            if (retries === 0) {
+                console.warn("⚠️ Max retries reached. Document not visible or uid mismatch.");
+                return false;
             }
-            return false;
+
+            try {
+                const docSnap = await getDoc(docRef);
+                if (docSnap.exists() && docSnap.data().ownerUid === expectedUid) {
+                    console.log(`✅ Document is visible after ${5 - retries} attempt(s).`);
+                    return true;
+                } else {
+                    console.warn(`⏳ Document not visible or uid mismatch. Retrying... (Attempts left: ${retries})`);
+                    await new Promise(resolve => setTimeout(resolve, 500)); // Wait for 500ms
+                    return await ensureOwnershipVisible(docRef, expectedUid, retries - 1);
+                }
+            } catch (error) {
+                console.error("❌ Error while checking Firestore document:", error);
+                return false;
+            }
         }
 
         async function uploadWithRetry(fileRef, file, attempts = 3) {
