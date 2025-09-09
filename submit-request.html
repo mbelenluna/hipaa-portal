@@ -441,14 +441,22 @@
             const sourceLang = getSelectedValues(sourceLangSelect);
             const targetLang = getSelectedValues(targetLangSelect);
 
-            if (!selectedFiles.length) { alert("Please attach at least one file."); return; }
+            if (!selectedFiles.length) {
+                alert("Please attach at least one file.");
+                return;
+            }
 
-            submitBtn.disabled = true; submitBtn.textContent = "Sending..."; loadingMsg.style.display = "block";
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Sending...";
+            loadingMsg.style.display = "block";
 
             console.group('📦 Submit flow');
             try {
                 const user = auth.currentUser;
-                console.log('Auth currentUser:', user ? { uid: user.uid, email: user.email } : null);
+                if (!user) {
+                    throw new Error("Authentication error: user not signed in.");
+                }
+                console.log('Auth currentUser:', { uid: user.uid, email: user.email });
                 const userEmail = user?.email || "";
                 const fullName = clientFullName || user?.displayName || "";
                 const phone = "";
@@ -456,16 +464,25 @@
                 const projectId = buildProjectId({ sourceLang, targetLang, firstFileName: selectedFiles[0].name, date: new Date() });
                 console.log('Computed projectId:', projectId);
 
-                // 1) Pre-generate the doc ID & create with setDoc (includes docId up front)
+                // 1) Create the Firestore document first.
                 console.groupCollapsed('📝 setDoc(projectRequests)');
                 const prColl = collection(db, "projectRequests");
                 const docRef = doc(prColl);
                 const payload = {
-                    projectId, rush,
-                    sourceLang: sourceLang.join(", "), targetLang: targetLang.join(", "),
-                    notes, files: [], fullname: fullName, email: userEmail, phone,
-                    status: "Uploading", deliverables: [], createdAt: serverTimestamp(),
-                    ownerUid: user?.uid || null, docId: docRef.id
+                    projectId,
+                    rush,
+                    sourceLang: sourceLang.join(", "),
+                    targetLang: targetLang.join(", "),
+                    notes,
+                    files: [],
+                    fullname: fullName,
+                    email: userEmail,
+                    phone,
+                    status: "Uploading",
+                    deliverables: [],
+                    createdAt: serverTimestamp(),
+                    ownerUid: user.uid,
+                    docId: docRef.id
                 };
                 try {
                     const t0 = performance.now();
@@ -475,15 +492,22 @@
                     console.error('setDoc FAILED:', { code: error.code, message: error.message, customData: error.customData });
                     console.warn('Hint:', explainFirestoreError(error));
                     throw error;
-                } finally { console.groupEnd(); }
-
-                // 1b) Ensure Firestore doc is visible for Storage rule get()
-                const visible = await ensureOwnershipVisible(docRef, user.uid);
-                if (!visible) {
-                    console.warn('⚠️ ownerUid not yet visible to rules — proceeding but uploads may need retry');
+                } finally {
+                    console.groupEnd();
                 }
 
-                // 2) Upload all source files using the new docId
+                // 2) ENSURE ownership is visible to Storage rules before attempting upload.
+                console.groupCollapsed('⌛️ Ensuring document ownership is visible to Storage rules');
+                const visible = await ensureOwnershipVisible(docRef, user.uid);
+                console.groupEnd();
+
+                // This is the CRITICAL change: it throws an error if the ownership check fails.
+                if (!visible) {
+                    console.error('❌ Final check failed: Ownership was not visible to Storage rules. Aborting upload.');
+                    throw new Error('Project document could not be validated. Please try again.');
+                }
+
+                // 3) Upload all source files using the new docId.
                 console.groupCollapsed('☁️ Uploading files');
                 const uploadedNames = [];
                 await Promise.all(selectedFiles.map(async (file, idx) => {
@@ -497,19 +521,26 @@
                     } catch (err) {
                         console.error('Upload FAILED for', file.name, err);
                         throw err;
-                    } finally { console.groupEnd(); }
+                    } finally {
+                        console.groupEnd();
+                    }
                 }));
                 console.groupEnd();
 
-                // 3) Final update: attach file names and mark Pending
+                // 4) Final update: attach file names and mark Pending.
                 console.groupCollapsed('✅ Final updateDoc(files, status)');
                 try {
-                    await updateDoc(docRef, { files: uploadedNames, status: "Pending" });
+                    await updateDoc(docRef, {
+                        files: uploadedNames,
+                        status: "Pending"
+                    });
                     console.log('Final update OK:', uploadedNames);
-                } catch (error) { console.error('Final updateDoc FAILED:', error); }
+                } catch (error) {
+                    console.error('Final updateDoc FAILED:', error);
+                }
                 console.groupEnd();
 
-                // 4) Send to Google Sheet
+                // 5) Send to Google Sheet.
                 console.groupCollapsed('📤 Submit to Google Sheet');
                 document.getElementById("fullnameField").value = fullName;
                 document.getElementById("emailField").value = userEmail;
@@ -524,17 +555,23 @@
                 console.log('Posted to Apps Script endpoint.');
                 console.groupEnd();
 
-                // 5) Show confirmation & redirect
+                // 6) Show confirmation & redirect.
                 loadingMsg.style.display = "none";
                 confirmationMsg.style.display = "block";
                 form.style.display = "none";
-                setTimeout(() => { window.location.href = "dashboard.html"; }, 3000);
+                setTimeout(() => {
+                    window.location.href = "dashboard.html";
+                }, 3000);
 
             } catch (error) {
-                submitBtn.disabled = false; submitBtn.textContent = "Send Request"; loadingMsg.style.display = "none";
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Send Request";
+                loadingMsg.style.display = "none";
                 console.error('❌ Submit flow FAILED:', { code: error.code, message: error.message, customData: error.customData });
                 alert(`⚠️ ${error.code || 'error'}: ${error.message}`);
-            } finally { console.groupEnd(); }
+            } finally {
+                console.groupEnd();
+            }
         });
     </script>
 </body>
