@@ -519,7 +519,7 @@
                 console.groupCollapsed('☁️ Uploading files');
                 const uploadedNames = [];
                 await Promise.all(selectedFiles.map(async (file, idx) => {
-                    const storagePath = `projects/${docRef.id}/${Date.now()}_${file.name}`;
+                    const storagePath = `user_uploads/${auth.currentUser.uid}/${docRef.id}/${Date.now()}_${file.name}`;
                     console.groupCollapsed(`↥ [${idx + 1}/${selectedFiles.length}] ${file.name}`);
                     console.log('Uploading to:', storagePath, 'size:', file.size, 'type:', file.type);
                     const fileRef = ref(storage, storagePath);

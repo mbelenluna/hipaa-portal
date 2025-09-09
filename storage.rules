@@ -1,30 +1,21 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    function signedIn() {
-      return request.auth != null;
-    }
+    function signedIn() { return request.auth != null; }
     function isAdmin() {
       return signedIn() &&
         get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
-    // Archivos fuente subidos por el cliente
-    match /projects/{docId}/{fileName} {
-      allow write: if signedIn() &&
-        // el doc de Firestore ya existe y pertenece al usuario
-        get(/databases/(default)/documents/projectRequests/$(docId)).data.ownerUid == request.auth.uid;
-      // (opcional) lectura privada para el dueño y los admins
-      allow read: if signedIn() && (
-        get(/databases/(default)/documents/projectRequests/$(docId)).data.ownerUid == request.auth.uid
-        || isAdmin()
-      );
+    // Cliente sube sus fuentes SIN consultar Firestore
+    match /user_uploads/{uid}/{docId}/{fileName=**} {
+      // Solo el dueño puede escribir/leer
+      allow write, read: if signedIn() && request.auth.uid == uid;
     }
 
-    // Entregables subidos por admin
-    match /deliverables/{docId}/{fileName} {
+    // (Opcional) Entregables para el cliente
+    match /deliverables/{docId}/{fileName=**} {
       allow write: if isAdmin();
-      // lectura: dueño del proyecto o admin
       allow read: if signedIn() && (
         get(/databases/(default)/documents/projectRequests/$(docId)).data.ownerUid == request.auth.uid
         || isAdmin()
