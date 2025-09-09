@@ -299,7 +299,7 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         const storage = getStorage(app, "gs://rollingtranslationsportal.firebasestorage.app");
-    console.log("[storage] root =", sref(storage).toString());
+    console.log("[storage] root =", ref(storage).toString());
 
         const gate = document.getElementById("status");
         const toolbar = document.getElementById("controls");
