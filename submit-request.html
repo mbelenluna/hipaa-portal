@@ -235,16 +235,30 @@
     </form>
 
     <script type="module">
+        // --------------------------
+        // Global error handlers
+        // --------------------------
+        window.addEventListener('error', (e) => {
+            console.error('🔥 window.error:', e.message, { filename: e.filename, lineno: e.lineno, colno: e.colno, error: e.error });
+        });
+        window.addEventListener('unhandledrejection', (e) => {
+            console.error('💥 unhandledrejection:', e.reason);
+        });
 
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
+        import { initializeApp, setLogLevel as setCoreLogLevel } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
         import { getStorage, ref, uploadBytes } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
-        import { getFirestore, addDoc, collection, serverTimestamp, doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
-setLogLevel('debug');
+        import { getFirestore, addDoc, collection, serverTimestamp, doc, getDoc, updateDoc, setLogLevel as setFirestoreLogLevel } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 
+        // ---- Debug controls ----
+        const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
+        if (DEBUG) {
+            setCoreLogLevel('debug');
+            setFirestoreLogLevel('debug');
+            console.info('🛠 Debug mode ON (add ?debug=0 to disable)');
+        }
 
-        // Firebase
+        // ---- Firebase config ----
         const firebaseConfig = {
             apiKey: "AIzaSyBYjq_CaTEfFhfTChfJ6SnXSbgIzbbRHHc",
             authDomain: "rollingtranslationsportal.firebaseapp.com",
@@ -253,6 +267,14 @@ setLogLevel('debug');
             messagingSenderId: "492156326175",
             appId: "1:492156326175:web:14175badae2bbaada0e02a"
         };
+
+        console.groupCollapsed('⚙️ Firebase init');
+        console.log('Origin:', location.origin);
+        console.log('Project:', firebaseConfig.projectId);
+        console.log('Auth domain:', firebaseConfig.authDomain);
+        console.log('Storage bucket:', firebaseConfig.storageBucket);
+        console.groupEnd();
+
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
@@ -261,18 +283,38 @@ setLogLevel('debug');
         let clientFullName = "";
         let clientOrg = "";
 
-        // Session
+        // --------------------------
+        // Auth session
+        // --------------------------
         onAuthStateChanged(auth, async (user) => {
+            console.groupCollapsed('👤 Auth state changed');
             if (!user) {
+                console.warn('Not signed in, redirecting to index.html');
+                console.groupEnd();
                 window.location.href = "index.html";
                 return;
             }
-            const userRef = doc(db, "users", user.uid);
-            const userSnap = await getDoc(userRef);
-            if (userSnap.exists()) {
-                const userData = userSnap.data();
-                clientFullName = userData.fullName;
-                clientOrg = userData.org;
+            console.log('User:', { uid: user.uid, email: user.email, displayName: user.displayName });
+            try {
+                const userRef = doc(db, "users", user.uid);
+                const userSnap = await getDoc(userRef);
+                if (userSnap.exists()) {
+                    const userData = userSnap.data();
+                    clientFullName = userData.fullName || user.displayName || '';
+                    clientOrg = userData.org || '';
+                    console.log('Loaded user profile:', { clientFullName, clientOrg });
+                } else {
+                    console.log('No user profile doc; using auth displayName only.');
+                    clientFullName = user.displayName || '';
+                }
+            } catch (e) {
+                console.error('Failed to fetch user profile:', e);
+            }
+            console.groupEnd();
+
+            // Optional smoke test when debug=1
+            if (DEBUG) {
+                await debugSmokeTest();
             }
         });
 
@@ -360,7 +402,51 @@ setLogLevel('debug');
             return `${src}${tgt}${lettersOnly}${MM}${DD}${YY}${HH}${mm}`;
         }
 
-        // Submit
+        // --------------------------
+        // Error explainers (Firestore)
+        // --------------------------
+        function explainFirestoreError(err) {
+            const code = err?.code || '';
+            switch (code) {
+                case 'permission-denied':
+                    return 'Rules blocked the write. Check Auth sign-in + rule conditions (e.g., ownerUid match).';
+                case 'unauthenticated':
+                    return 'Not signed in. Make sure mbelenluna.github.io is in Auth → Authorized domains.';
+                case 'failed-precondition':
+                    return 'Precondition failed. Sometimes appears if App Check is enforced or Firestore not initialized.';
+                case 'invalid-argument':
+                    return 'Invalid field value (e.g., undefined). Verify payload fields.';
+                case 'unavailable':
+                    return 'Service unavailable / network hiccup. Retry.';
+                default:
+                    return 'See console for details.';
+            }
+        }
+
+        // --------------------------
+        // Smoke test (only when ?debug=1)
+        // --------------------------
+        async function debugSmokeTest() {
+            console.groupCollapsed('🚬 Firestore smoke test');
+            try {
+                const t0 = performance.now();
+                const r = await addDoc(collection(db, "z_debug"), { ok: true, t: serverTimestamp(), origin: location.origin });
+                const t1 = performance.now();
+                console.log('z_debug write OK:', r.id, `(${Math.round(t1 - t0)} ms)`);
+            } catch (error) {
+                console.error('z_debug write FAILED:', {
+                    code: error.code,
+                    message: error.message,
+                    customData: error.customData
+                });
+                console.warn('Hint:', explainFirestoreError(error));
+            }
+            console.groupEnd();
+        }
+
+        // --------------------------
+        // Submit handler
+        // --------------------------
         form.addEventListener("submit", async (e) => {
             e.preventDefault();
 
@@ -371,8 +457,6 @@ setLogLevel('debug');
 
             const sourceLang = getSelectedValues(sourceLangSelect);
             const targetLang = getSelectedValues(targetLangSelect);
-            
-
 
             if (!selectedFiles.length) {
                 alert("Please attach at least one file.");
@@ -384,10 +468,13 @@ setLogLevel('debug');
             submitBtn.textContent = "Sending...";
             loadingMsg.style.display = "block";
 
+            console.group('📦 Submit flow');
             try {
                 // User info
-                const userEmail = auth.currentUser?.email || "";
-                const fullName = clientFullName || auth.currentUser?.displayName || "";
+                const user = auth.currentUser;
+                console.log('Auth currentUser:', user ? { uid: user.uid, email: user.email } : null);
+                const userEmail = user?.email || "";
+                const fullName = clientFullName || user?.displayName || "";
                 const phone = ""; // optional
 
                 // Project ID from first file
@@ -397,44 +484,97 @@ setLogLevel('debug');
                     firstFileName: selectedFiles[0].name,
                     date: new Date()
                 });
+                console.log('Computed projectId:', projectId);
 
                 // 1) Create the Firestore document first to get its ID
-                const docRef = await addDoc(collection(db, "projectRequests"), {
-                    projectId,
-                    rush,
-                    sourceLang: sourceLang.join(", "),
-                    targetLang: targetLang.join(", "),
-                    notes,
-                    files: [], // Start with an empty array
-                    fullname: fullName,
-                    email: userEmail,
-                    phone: phone,
-                    status: "Uploading", // Use a temporary status
-                    deliverables: [],
-                    createdAt: serverTimestamp(),
-                    ownerUid: auth.currentUser.uid // Add the ownerUid field for security rules
-                });
+                console.groupCollapsed('📝 addDoc(projectRequests)');
+                let docRef;
+                try {
+                    const payload = {
+                        projectId,
+                        rush,
+                        sourceLang: sourceLang.join(", "),
+                        targetLang: targetLang.join(", "),
+                        notes,
+                        files: [], // Start with an empty array
+                        fullname: fullName,
+                        email: userEmail,
+                        phone: phone,
+                        status: "Uploading", // Use a temporary status
+                        deliverables: [],
+                        createdAt: serverTimestamp(),
+                        ownerUid: user?.uid || null // for security rules
+                    };
+                    console.log('Payload:', payload);
+
+                    const t0 = performance.now();
+                    docRef = await addDoc(collection(db, "projectRequests"), payload);
+                    const t1 = performance.now();
+                    console.log('Doc created:', { id: docRef.id, ms: Math.round(t1 - t0) });
+                } catch (error) {
+                    console.error('addDoc FAILED:', {
+                        code: error.code,
+                        message: error.message,
+                        customData: error.customData
+                    });
+                    console.warn('Hint:', explainFirestoreError(error));
+                    throw error;
+                } finally {
+                    console.groupEnd();
+                }
 
                 // Update the document with its own ID right away
-                await updateDoc(docRef, { docId: docRef.id });
+                console.groupCollapsed('🔧 updateDoc(docId)');
+                try {
+                    await updateDoc(docRef, { docId: docRef.id });
+                    console.log('docId backfilled:', docRef.id);
+                } catch (error) {
+                    console.error('updateDoc(docId) FAILED:', error);
+                    // Not fatal for uploads, continue
+                } finally {
+                    console.groupEnd();
+                }
 
                 // 2) Upload all source files using the new docId
+                console.groupCollapsed('☁️ Uploading files');
                 const uploadedNames = [];
-                await Promise.all(selectedFiles.map(async (file) => {
+                await Promise.all(selectedFiles.map(async (file, idx) => {
                     const storagePath = `projects/${docRef.id}/${Date.now()}_${file.name}`;
-                    console.log('Uploading to:', storagePath);
+                    console.groupCollapsed(`↥ [${idx + 1}/${selectedFiles.length}] ${file.name}`);
+                    console.log('Uploading to:', storagePath, 'size:', file.size, 'type:', file.type);
                     const fileRef = ref(storage, storagePath);
-                    await uploadBytes(fileRef, file);
-                    uploadedNames.push(file.name);
+                    try {
+                        const t0 = performance.now();
+                        await uploadBytes(fileRef, file);
+                        const t1 = performance.now();
+                        console.log('Upload OK:', { ms: Math.round(t1 - t0) });
+                        uploadedNames.push(file.name);
+                    } catch (err) {
+                        console.error('Upload FAILED for', file.name, err);
+                        throw err; // bubble up to stop the flow
+                    } finally {
+                        console.groupEnd();
+                    }
                 }));
+                console.groupEnd();
 
                 // 3) Update the Firestore document with the file names and final status
-                await updateDoc(docRef, {
-                    files: uploadedNames,
-                    status: "Pending"
-                });
+                console.groupCollapsed('✅ Final updateDoc(files, status)');
+                try {
+                    await updateDoc(docRef, {
+                        files: uploadedNames,
+                        status: "Pending"
+                    });
+                    console.log('Final update OK:', uploadedNames);
+                } catch (error) {
+                    console.error('Final updateDoc FAILED:', error);
+                    // Non-fatal for user experience, continue to confirmation
+                } finally {
+                    console.groupEnd();
+                }
 
                 // 4) Send to Google Sheet
+                console.groupCollapsed('📤 Submit to Google Sheet');
                 document.getElementById("fullnameField").value = fullName;
                 document.getElementById("emailField").value = userEmail;
                 document.getElementById("phoneField").value = phone;
@@ -444,15 +584,15 @@ setLogLevel('debug');
                 document.getElementById("fileNameField").value = uploadedNames.join(", ");
                 document.getElementById("projectIdField").value = projectId;
                 document.getElementById("rushField").value = rush ? "Yes" : "No";
-
                 document.getElementById("spreadsheetForm").submit();
+                console.log('Posted to Apps Script endpoint.');
+                console.groupEnd();
 
                 // 5) Show confirmation message and redirect
                 loadingMsg.style.display = "none";
                 confirmationMsg.style.display = "block";
                 form.style.display = "none";
 
-                // Wait a moment before redirecting
                 setTimeout(() => {
                     window.location.href = "dashboard.html";
                 }, 3000);
@@ -462,8 +602,16 @@ setLogLevel('debug');
                 submitBtn.disabled = false;
                 submitBtn.textContent = "Send Request";
                 loadingMsg.style.display = "none";
-                alert("⚠️ Error: " + error.message);
-                console.error(error);
+
+                console.error('❌ Submit flow FAILED:', {
+                    code: error.code,
+                    message: error.message,
+                    customData: error.customData
+                });
+                const hint = explainFirestoreError(error);
+                alert(`⚠️ ${error.code || 'error'}: ${error.message}\n\nHint: ${hint}`);
+            } finally {
+                console.groupEnd();
             }
         });
     </script>
