@@ -248,7 +248,10 @@
         import { initializeApp, setLogLevel as setCoreLogLevel } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
         import { getStorage, ref, uploadBytes } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
-        import { getFirestore, addDoc, collection, serverTimestamp, doc, getDoc, updateDoc, setLogLevel as setFirestoreLogLevel } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+        import {
+            getFirestore, addDoc, collection, serverTimestamp,
+            doc, getDoc, updateDoc, setDoc, setLogLevel as setFirestoreLogLevel
+        } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 
         // ---- Debug controls ----
         const DEBUG = new URLSearchParams(location.search).get('debug') === '1';
@@ -486,51 +489,39 @@
                 });
                 console.log('Computed projectId:', projectId);
 
-                // 1) Create the Firestore document first to get its ID
-                console.groupCollapsed('📝 addDoc(projectRequests)');
-                let docRef;
+                // 1) Pre-generate the doc ID & create with setDoc (includes docId up front)
+                console.groupCollapsed('📝 setDoc(projectRequests)');
+                const prColl = collection(db, "projectRequests");
+                const docRef = doc(prColl); // pre-generate ID
+                const payload = {
+                    projectId,
+                    rush,
+                    sourceLang: sourceLang.join(", "),
+                    targetLang: targetLang.join(", "),
+                    notes,
+                    files: [],            // start empty
+                    fullname: fullName,
+                    email: userEmail,
+                    phone: phone,
+                    status: "Uploading",  // temporary
+                    deliverables: [],
+                    createdAt: serverTimestamp(),
+                    ownerUid: user?.uid || null,
+                    docId: docRef.id
+                };
                 try {
-                    const payload = {
-                        projectId,
-                        rush,
-                        sourceLang: sourceLang.join(", "),
-                        targetLang: targetLang.join(", "),
-                        notes,
-                        files: [], // Start with an empty array
-                        fullname: fullName,
-                        email: userEmail,
-                        phone: phone,
-                        status: "Uploading", // Use a temporary status
-                        deliverables: [],
-                        createdAt: serverTimestamp(),
-                        ownerUid: user?.uid || null // for security rules
-                    };
-                    console.log('Payload:', payload);
-
                     const t0 = performance.now();
-                    docRef = await addDoc(collection(db, "projectRequests"), payload);
+                    await setDoc(docRef, payload);
                     const t1 = performance.now();
-                    console.log('Doc created:', { id: docRef.id, ms: Math.round(t1 - t0) });
+                    console.log('Doc created with ID:', docRef.id, `(${Math.round(t1 - t0)} ms)`);
                 } catch (error) {
-                    console.error('addDoc FAILED:', {
+                    console.error('setDoc FAILED:', {
                         code: error.code,
                         message: error.message,
                         customData: error.customData
                     });
                     console.warn('Hint:', explainFirestoreError(error));
                     throw error;
-                } finally {
-                    console.groupEnd();
-                }
-
-                // Update the document with its own ID right away
-                console.groupCollapsed('🔧 updateDoc(docId)');
-                try {
-                    await updateDoc(docRef, { docId: docRef.id });
-                    console.log('docId backfilled:', docRef.id);
-                } catch (error) {
-                    console.error('updateDoc(docId) FAILED:', error);
-                    // Not fatal for uploads, continue
                 } finally {
                     console.groupEnd();
                 }
@@ -551,14 +542,14 @@
                         uploadedNames.push(file.name);
                     } catch (err) {
                         console.error('Upload FAILED for', file.name, err);
-                        throw err; // bubble up to stop the flow
+                        throw err; // stop flow
                     } finally {
                         console.groupEnd();
                     }
                 }));
                 console.groupEnd();
 
-                // 3) Update the Firestore document with the file names and final status
+                // 3) Final update: attach file names and mark Pending
                 console.groupCollapsed('✅ Final updateDoc(files, status)');
                 try {
                     await updateDoc(docRef, {
@@ -568,7 +559,7 @@
                     console.log('Final update OK:', uploadedNames);
                 } catch (error) {
                     console.error('Final updateDoc FAILED:', error);
-                    // Non-fatal for user experience, continue to confirmation
+                    // Not fatal for user; continue
                 } finally {
                     console.groupEnd();
                 }
