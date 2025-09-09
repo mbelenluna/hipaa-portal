@@ -479,7 +479,9 @@
 
                 // 1b) Ensure Firestore doc is visible for Storage rule get()
                 const visible = await ensureOwnershipVisible(docRef, user.uid);
-                if (!visible) console.warn('⚠️ ownerUid not yet visible to rules — proceeding but uploads may need retry');
+                if (!visible) {
+                    console.warn('⚠️ ownerUid not yet visible to rules — proceeding but uploads may need retry');
+                }
 
                 // 2) Upload all source files using the new docId
                 console.groupCollapsed('☁️ Uploading files');

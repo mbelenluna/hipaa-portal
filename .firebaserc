@@ -1,5 +1,15 @@
 {
   "projects": {
     "default": "rollingtranslationsportal"
-  }
+  },
+  "targets": {
+    "rollingtranslationsportal": {
+      "storage": {
+        "portalBucket": [
+          "rollingtranslationsportal.firebasestorage.app"
+        ]
+      }
+    }
+  },
+  "etags": {}
 }
