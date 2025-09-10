@@ -316,14 +316,36 @@
         const STATUS_OPTIONS = ["Pending", "In progress", "Delivered", "Finalized", "Rejected"];
         const pending = new Map(); // docId -> File[]
 
+        async function ensureAdminRoleIsVisible(uid, retries = 5, delay = 500) {
+            if (retries === 0) {
+                console.warn("⚠️ Max retries reached. Admin role not visible.");
+                return false;
+            }
+
+            try {
+                const userDoc = await getDoc(doc(db, "users", uid));
+                if (userDoc.exists() && userDoc.data().role === "admin") {
+                    console.log(`✅ Admin role is visible after ${5 - retries} attempt(s).`);
+                    return true;
+                } else {
+                    console.warn(`⏳ Admin role not yet visible. Retrying... (Attempts left: ${retries})`);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return await ensureAdminRoleIsVisible(uid, retries - 1, delay);
+                }
+            } catch (error) {
+                console.error("❌ Error while checking Firestore admin role:", error);
+                return false;
+            }
+        }
+
         onAuthStateChanged(auth, async (user) => {
             if (!user) { location.href = "index.html"; return; }
             gate.textContent = "Checking admin access…";
 
             try {
-                const userDoc = await getDoc(doc(db, "users", user.uid));
-                if (!userDoc.exists() || userDoc.data().role !== "admin") {
-                    gate.textContent = "Access denied. Admin only.";
+                const isAdminVisible = await ensureAdminRoleIsVisible(user.uid);
+                if (!isAdminVisible) {
+                    gate.textContent = "Access denied. Admin role not confirmed.";
                     alert("This page is for admins only.");
                     location.href = "index.html";
                     return;
