@@ -513,8 +513,15 @@
             const list = pending.get(docId) || [];
             if (!list.length) { alert("Add files first (use Choose files)."); return; }
 
-            btn.disabled = true; btn.textContent = "Uploading…";
+            btn.disabled = true;
+            btn.textContent = "Uploading…";
+
             try {
+                // Step 1: Force a fresh ID token to ensure the latest admin role is used.
+                const user = auth.currentUser;
+                await user.getIdToken(true);
+
+                // Step 2: Proceed with the upload.
                 const updates = [];
                 for (const f of list) {
                     const path = `deliverables/${docId}/${Date.now()}_${f.name}`;
@@ -538,7 +545,8 @@
                 console.error("[UPLOAD] Failed:", err);
                 alert("Failed to upload: " + err.message);
             } finally {
-                btn.disabled = false; btn.textContent = "Upload";
+                btn.disabled = false;
+                btn.textContent = "Upload";
             }
         }
 
