@@ -2,6 +2,7 @@
 // Node.js 22 + Firebase Functions (Gen 2)
 
 const { onDocumentCreated, onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onCall } = require("firebase-functions/v2/https"); // ✅ CORRECTED: Added onCall
 const admin = require("firebase-admin");
 const nodemailer = require("nodemailer");
 const { defineString } = require("firebase-functions/params");
@@ -43,14 +44,12 @@ function niceFiles(fileData) {
 }
 
 // ========== A) On new project: send notification to client and admin ==========
-// ========== A) On new project: send notification to client and admin ==========
 exports.newProject_Notify_v2 = onDocumentCreated("projectRequests/{projectId}", async (event) => {
     try {
         const after = event?.data?.data?.() || {};
         const projectId = after.projectId || event.params.projectId || "—";
-        const isRush = after.rush ? "Yes" : "No"; // <-- NEW: Get rush status
+        const isRush = after.rush ? "Yes" : "No";
 
-        // Early exit: no client email
         if (!after.email) {
             console.log("newProject_Notify_v2: no client email, skipping.");
             return;
@@ -120,7 +119,6 @@ exports.statusChange_Notify_v2 = onDocumentUpdated("projectRequests/{projectId}"
         const after = event?.data?.after?.data?.() || {};
         const projectId = after.projectId || event.params.projectId || "—";
 
-        // Early exit: no client email or status is unchanged
         if (!after.email) {
             console.log("statusChange_Notify_v2: no client email, skipping.");
             return;
@@ -154,5 +152,30 @@ Rolling Translations
         console.log("✅ statusChange_Notify_v2: email sent.");
     } catch (err) {
         console.error("❌ statusChange_Notify_v2 error:", err?.message || err);
+    }
+});
+
+
+// ✅ NEW: makeUserAdmin function with 2nd Gen syntax
+exports.makeUserAdmin = onCall(async (request) => {
+    // Check if the user is authenticated and has permission to set the claim
+    if (!request.auth) {
+        throw new onCall.HttpsError('unauthenticated', 'The function must be called while authenticated.');
+    }
+
+    // Get the UID of the user to be made an admin
+    const uid = request.data.uid;
+    if (!uid) {
+        throw new onCall.HttpsError('invalid-argument', 'The user ID must be provided.');
+    }
+
+    try {
+        // Set the custom claim
+        await admin.auth().setCustomUserClaims(uid, { admin: true });
+
+        // Return success message
+        return { message: `User ${uid} is now an admin!` };
+    } catch (error) {
+        throw new onCall.HttpsError('internal', error.message);
     }
 });

@@ -316,46 +316,37 @@
         const STATUS_OPTIONS = ["Pending", "In progress", "Delivered", "Finalized", "Rejected"];
         const pending = new Map(); // docId -> File[]
 
-        async function ensureAdminRoleIsVisible(uid, retries = 5, delay = 500) {
-            if (retries === 0) {
-                console.warn("⚠️ Max retries reached. Admin role not visible.");
-                return false;
-            }
-
-            try {
-                const userDoc = await getDoc(doc(db, "users", uid));
-                if (userDoc.exists() && userDoc.data().role === "admin") {
-                    console.log(`✅ Admin role is visible after ${5 - retries} attempt(s).`);
-                    return true;
-                } else {
-                    console.warn(`⏳ Admin role not yet visible. Retrying... (Attempts left: ${retries})`);
-                    await new Promise(resolve => setTimeout(resolve, delay));
-                    return await ensureAdminRoleIsVisible(uid, retries - 1, delay);
-                }
-            } catch (error) {
-                console.error("❌ Error while checking Firestore admin role:", error);
-                return false;
-            }
-        }
-
         onAuthStateChanged(auth, async (user) => {
-            if (!user) { location.href = "index.html"; return; }
-            gate.textContent = "Checking admin access…";
+            if (!user) {
+                console.log("[AUTH] No user logged in. Redirecting.");
+                location.href = "index.html";
+                return;
+            }
+
+            console.log(`[AUTH] User logged in: ${user.email} (UID: ${user.uid})`);
+            gate.textContent = "Checking admin permissions...";
 
             try {
-                const isAdminVisible = await ensureAdminRoleIsVisible(user.uid);
-                if (!isAdminVisible) {
-                    gate.textContent = "Access denied. Admin role not confirmed.";
+                // Force a refresh of the ID token to ensure we have the latest custom claims
+                const idTokenResult = await user.getIdTokenResult(true);
+                const claims = idTokenResult.claims;
+                console.log("[AUTH] User's ID token claims:", claims);
+
+                if (claims.admin) {
+                    console.log("✅ [AUTH] User has 'admin: true' custom claim. Access granted.");
+                    gate.textContent = "";
+                    table.classList.remove("hidden");
+                    await loadData();
+                } else {
+                    console.error("❌ [AUTH] User does NOT have 'admin: true' custom claim. Access denied.");
+                    gate.textContent = "Access denied. You are not an admin.";
                     alert("This page is for admins only.");
+                    await signOut(auth);
                     location.href = "index.html";
-                    return;
                 }
-                gate.textContent = "";
-                table.classList.remove("hidden");
-                await loadData();
             } catch (err) {
-                console.error("[AUTH] Admin gate error:", err);
-                gate.textContent = "Error checking admin.";
+                console.error("[AUTH] Error checking admin status:", err);
+                gate.textContent = "Error checking admin status. Please try again.";
             }
         });
 
@@ -410,11 +401,11 @@
                     : "—";
 
                 const statusSel = `
-          <select class="status-select" data-docid="${r.id}">
-            ${STATUS_OPTIONS.map(s => `<option value="${s}" ${s === r.status ? 'selected' : ''}>${s}</option>`).join("")}
-          </select>
-          <div class="small">docId: <code>${el(r.id)}</code></div>
-        `;
+            <select class="status-select" data-docid="${r.id}">
+              ${STATUS_OPTIONS.map(s => `<option value="${s}" ${s === r.status ? 'selected' : ''}>${s}</option>`).join("")}
+            </select>
+            <div class="small">docId: <code>${el(r.id)}</code></div>
+          `;
 
                 const delivHtml = r.deliverables?.length
                     ? `<div class="chips">${r.deliverables.map((d, i) => {
@@ -428,26 +419,26 @@
 
                 const uploadId = `up_${r.id}`;
                 const upHtml = `
-          <div class="upload-col" data-docid="${r.id}">
-            <input type="file" id="${uploadId}" multiple />
-            <div class="pending-list" id="plist_${r.id}"></div>
-            <button class="btn primary" data-docid="${r.id}" data-input="${uploadId}">Upload</button>
-          </div>
-        `;
+            <div class="upload-col" data-docid="${r.id}">
+              <input type="file" id="${uploadId}" multiple />
+              <div class="pending-list" id="plist_${r.id}"></div>
+              <button class="btn primary" data-docid="${r.id}" data-input="${uploadId}">Upload</button>
+            </div>
+          `;
 
                 tr.innerHTML = `
-          <td class="date-col">${dateText}</td>
-          <td class="client-col">
-            <strong>${el(r.fullname) || "—"}</strong><br>
-            <span class="small">${el(r.email) || "—"}</span>
-          </td>
-          <td class="project-col">${el(r.projectId) || "—"}</td>
-          <td class="lang-col">${el(langs)}</td>
-          <td class="files-col">${filesHtml}</td>
-          <td class="status-col">${statusSel}</td>
-          <td class="deliver-col">${delivHtml}</td>
-          <td class="upload-col">${upHtml}</td>
-        `;
+            <td class="date-col">${dateText}</td>
+            <td class="client-col">
+              <strong>${el(r.fullname) || "—"}</strong><br>
+              <span class="small">${el(r.email) || "—"}</span>
+            </td>
+            <td class="project-col">${el(r.projectId) || "—"}</td>
+            <td class="lang-col">${el(langs)}</td>
+            <td class="files-col">${filesHtml}</td>
+            <td class="status-col">${statusSel}</td>
+            <td class="deliver-col">${delivHtml}</td>
+            <td class="upload-col">${upHtml}</td>
+          `;
                 tbody.appendChild(tr);
 
                 // input acumulador
@@ -484,9 +475,9 @@
                 const row = document.createElement("div");
                 row.className = "pending-item";
                 row.innerHTML = `
-          <span class="name" title="${el(f.name)}">${el(f.name)}</span>
-          <button class="remove" data-docid="${docId}" data-index="${idx}" title="Remove">✖</button>
-        `;
+              <span class="name" title="${el(f.name)}">${el(f.name)}</span>
+              <button class="remove" data-docid="${docId}" data-index="${idx}" title="Remove">✖</button>
+            `;
                 cont.appendChild(row);
             });
             cont.querySelectorAll("button.remove").forEach(b => b.addEventListener("click", (e) => {
@@ -517,11 +508,13 @@
             btn.textContent = "Uploading…";
 
             try {
-                // Step 1: Force a fresh ID token to ensure the latest admin role is used.
+                // Ensure the ID token is fresh and contains the admin claim
                 const user = auth.currentUser;
-                await user.getIdToken(true);
+                const idTokenResult = await user.getIdTokenResult(true);
+                if (!idTokenResult.claims.admin) {
+                    throw new Error("Missing 'admin' custom claim.");
+                }
 
-                // Step 2: Proceed with the upload.
                 const updates = [];
                 for (const f of list) {
                     const path = `deliverables/${docId}/${Date.now()}_${f.name}`;
