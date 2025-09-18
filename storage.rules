@@ -2,8 +2,8 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     function signedIn() { return request.auth != null; }
-
-    // This is the correct way to check for a custom claim
+    
+    // Correct way: Check for a custom 'admin' claim in the token
     function isAdmin() {
       return request.auth.token.admin == true;
     }
