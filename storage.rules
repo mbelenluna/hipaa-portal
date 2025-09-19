@@ -3,9 +3,10 @@ service firebase.storage {
   match /b/{bucket}/o {
     function signedIn() { return request.auth != null; }
     
-    // Correct way: Check for a custom 'admin' claim in the token
+    // Check for admin role in Firestore users collection
     function isAdmin() {
-      return request.auth.token.admin == true;
+      return exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+             get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
     // Subidas del cliente (esto ya te funciona)
@@ -17,10 +18,10 @@ service firebase.storage {
     match /deliverables/{docId}/{fileName=**} {
       allow write: if isAdmin();
       // lectura: dueño del proyecto o admin
-      allow read: if signedIn() && (
-        get(/databases/(default)/documents/projectRequests/$(docId)).data.ownerUid == request.auth.uid
-        || isAdmin()
-      );
+      //allow read: if signedIn() && (get(/databases/(default)/documents/projectRequests/$(docId)).data.ownerUid == request.auth.uid|| isAdmin());
+      
+      // lectura: solo admin por ahora
+      allow read: if isAdmin();
     }
   }
 }
