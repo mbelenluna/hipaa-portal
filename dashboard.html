@@ -108,9 +108,9 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
-        import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
-        import { getStorage, ref, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
+        import { getAuth, onAuthStateChanged, signOut, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+        import { getFirestore, collection, query, where, getDocs, connectFirestoreEmulator } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
+        import { getStorage, ref, getDownloadURL, connectStorageEmulator } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBYjq_CaTEfFhfTChfJ6SnXSbgIzbbRHHc",
@@ -124,6 +124,14 @@
         const auth = getAuth(app);
         const db = getFirestore(app);
         const storage = getStorage(app);
+
+        // Emulator connections disabled for production testing
+        // if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        //     connectFirestoreEmulator(db, 'localhost', 8080);
+        //     connectStorageEmulator(storage, 'localhost', 9199);
+        //     connectAuthEmulator(auth, 'http://localhost:9099');
+        //     console.log('Dashboard connected to Firebase emulators');
+        // }
 
         const table = document.getElementById("requestsTable");
         const tbody = table.querySelector("tbody");

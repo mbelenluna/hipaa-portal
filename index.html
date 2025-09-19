@@ -26,7 +26,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, connectAuthEmulator } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-auth.js";
         import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-storage.js";
         import { getFirestore, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.7.1/firebase-firestore.js";
 
@@ -40,6 +40,11 @@
         };
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
+
+        // Emulator connections disabled for production testing
+        // if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+        //     connectAuthEmulator(auth, 'http://localhost:9099');
+        // }
 
         const loginForm = document.getElementById("loginForm");
         loginForm.addEventListener("submit", (e) => {
