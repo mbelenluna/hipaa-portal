@@ -156,30 +156,24 @@ Rolling Translations
 });
 
 
-// ✅ NEW: makeUserAdmin function with 2nd Gen syntax
+// ✅ Keep the old callable function for backwards compatibility
 exports.makeUserAdmin = onCall({ cors: true }, async (request) => {
-    // Check if the user is authenticated and has permission to set the claim
     if (!request.auth) {
         throw new onCall.HttpsError('unauthenticated', 'The function must be called while authenticated.');
     }
 
-    // Get the UID of the user to be made an admin
     const uid = request.data.uid;
     if (!uid) {
         throw new onCall.HttpsError('invalid-argument', 'The user ID must be provided.');
     }
 
     try {
-        // Set the custom claim
         await admin.auth().setCustomUserClaims(uid, { admin: true });
-
-        // Also create/update Firestore user document with admin role
         await admin.firestore().collection('users').doc(uid).set({
             role: 'admin',
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         }, { merge: true });
 
-        // Return success message
         return { message: `User ${uid} is now an admin!` };
     } catch (error) {
         throw new onCall.HttpsError('internal', `Unable to make user admin: ${error.message}`);

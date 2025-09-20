@@ -3,10 +3,11 @@ service firebase.storage {
   match /b/{bucket}/o {
     function signedIn() { return request.auth != null; }
 
-    // Check for admin custom claim in auth token
+    // Check for admin role in Firestore users collection
     function isAdmin() {
       return request.auth != null &&
-             request.auth.token.admin == true;
+             firestore.exists(/databases/(default)/documents/users/$(request.auth.uid)) &&
+             firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role == "admin";
     }
 
     // Subidas del cliente (esto ya te funciona)
