@@ -24,6 +24,46 @@
       ]
     }
   ],
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**",
+      "functions/**",
+      "*.md",
+      "*.rules",
+      "*.json"
+    ],
+    "cleanUrls": true,
+    "trailingSlash": false,
+    "rewrites": [
+      {
+        "source": "/admin",
+        "destination": "/admin-uploader.html"
+      },
+      {
+        "source": "/make-admin",
+        "destination": "/make-admin.html"
+      },
+      {
+        "source": "/dashboard",
+        "destination": "/dashboard.html"
+      },
+      {
+        "source": "/submit",
+        "destination": "/submit-request.html"
+      },
+      {
+        "source": "/register",
+        "destination": "/register.html"
+      },
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
   "emulators": {
     "auth": {
       "port": 9099
